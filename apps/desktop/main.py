@@ -45,7 +45,8 @@ def _run(argv: list[str], settings: Settings) -> int:
             f"python={sys.version.split()[0]} "
             f"mode={window.mode_badge.text()} "
             f"database={window.dashboard.database_card.state_label.text()} "
-            f"backend={window.dashboard.backend_card.state_label.text()}"
+            f"backend={window.dashboard.backend_card.state_label.text()} "
+            f"gmgn={window.dashboard.gmgn_card.state_label.text()}"
         )
         return 0
     print("CYVORA_DESKTOP_SMOKE_FAIL")

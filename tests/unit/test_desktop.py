@@ -42,7 +42,7 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.placeholder)
     assert window.page_title.text() == "Strategies"
     assert "Placeholder" in window.placeholder.body.text()
-    assert "Phase 1" in window.placeholder.body.text()
+    assert "Phase 2" in window.placeholder.body.text()
 
 
 def test_navigation_stays_responsive(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -65,19 +65,21 @@ def test_snapshot_updates_cards_without_market_data(qtbot) -> None:  # type: ign
     qtbot.addWidget(window)
     snapshot = StatusSnapshot(
         app_name="CYVORA",
-        version="0.1.0",
-        phase="1",
+        version="0.2.0",
+        phase="2",
         environment="local",
         execution_mode="PAPER",
         live_trading_enabled=False,
-        application=ComponentStatus("running", "CYVORA 0.1.0 phase 1"),
+        application=ComponentStatus("running", "CYVORA 0.2.0 phase 2"),
         database=ComponentStatus("not_configured", "CYVORA_DATABASE_URL is not set."),
         backend=ComponentStatus("offline", "The CYVORA API is not accepting connections."),
+        gmgn=ComponentStatus("not_configured", "GMGN_API_KEY is not set."),
     )
     window.apply_snapshot(snapshot)
     assert window.mode_badge.text() == "PAPER"
     assert window.dashboard.database_card.state_label.text() == "not_configured"
     assert window.dashboard.backend_card.state_label.text() == "offline"
-    assert "0.1.0" in window.dashboard.application_card.detail_label.text()
+    assert "0.2.0" in window.dashboard.application_card.detail_label.text()
+    assert window.dashboard.gmgn_card.state_label.text() == "not_configured"
     theme = Path(__file__).resolve().parents[2] / "apps" / "desktop" / "themes" / "cyvora.qss"
     assert theme.is_file()

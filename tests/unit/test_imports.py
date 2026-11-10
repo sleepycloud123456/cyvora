@@ -14,10 +14,12 @@ def test_foundation_modules_import() -> None:
     import apps.desktop.main
     import config.settings
     import database.connection
+    import integrations.gmgn
     import monitoring.health
 
     assert callable(apps.api.main.create_app)
     assert callable(apps.desktop.main.main)
-    assert config.settings.PHASE == "1"
+    assert config.settings.PHASE == "2"
+    assert callable(integrations.gmgn.GMGNClient)
     assert callable(database.connection.check_database)
     assert callable(monitoring.health.collect_status)

@@ -1,6 +1,6 @@
 # Environment
 
-Inspection date: 2026-11-10. Commands were run on the project machine. Environment variable values were not printed, and no secret file was read.
+Inspection date: 2026-11-10, with the PostgreSQL and GMGN notes rechecked on 2026-11-11. Commands were run on the project machine. Environment variable values were not printed, and no secret file was read.
 
 ## Machine
 
@@ -15,12 +15,12 @@ Inspection date: 2026-11-10. Commands were run on the project machine. Environme
 | uv | 0.13.7 (316c827e0 2026-11-03) |
 | pipx | Not installed |
 | Docker | `docker` is not recognized |
-| psql | `psql` is not recognized |
-| PostgreSQL services | None |
-| PostgreSQL directories | `C:\Program Files\PostgreSQL` and the x86 equivalent are absent |
+| psql on PATH | `psql` is not recognized |
+| psql installed | `C:\Program Files\PostgreSQL\17\bin\psql.exe`, PostgreSQL 17.11 |
+| PostgreSQL service | `postgresql-x64-17`, Running, Automatic |
 | WSL | Default version 2 is configured, but WSL2 cannot start because virtualization is not enabled |
 
-Node.js is present and unused. Phase 1 has no JavaScript package.
+Node.js is present and unused. This repository has no JavaScript package. The GMGN client is Python.
 
 ## Python interpreters
 
@@ -54,17 +54,11 @@ Findings:
 
 ## PostgreSQL
 
-No server, client, Windows service, or Docker engine is available. The application therefore reports `not_configured` when `CYVORA_DATABASE_URL` is empty. Alembic refuses to run a migration against an assumed database.
+PostgreSQL 17.11 is installed as the Windows service `postgresql-x64-17`. The service was Running, with start type Automatic, on 2026-11-11. `psql` is not on `PATH`. The binary is `C:\Program Files\PostgreSQL\17\bin\psql.exe`.
 
-### Smallest manual step
+A local `cyvora` role and database exist. `CYVORA_DATABASE_URL` is set in the gitignored `.env`. Alembic current and head are both `0001_application_metadata`. The desktop smoke reports the database as `reachable`. Do not print the URL or the password.
 
-Install PostgreSQL 16 or 17 for Windows x64 from the EnterpriseDB installer, or another official Windows build you trust. Create a local role and a database. Copy `.env.example` to `.env`, set `CYVORA_DATABASE_URL` to a `postgresql+psycopg://` URL, and run:
-
-```powershell
-uv run alembic upgrade head
-```
-
-Keep the password in `.env` only. Do not paste it into chat, a commit, or a log. Docker is not an alternative until virtualization is enabled and Docker Desktop is installed. Do not point this project at a hosted database.
+Docker is still not installed. Do not point this project at a hosted database.
 
 ## Project virtual environment
 
@@ -72,7 +66,7 @@ Keep the password in `.env` only. Do not paste it into chat, a commit, or a log.
 
 | Package | Version |
 |---|---|
-| cyvora | 0.1.0 |
+| cyvora | 0.2.0 |
 | alembic | 1.20.1 |
 | fastapi | 0.162.4 |
 | psycopg | 3.3.8 |
@@ -82,11 +76,11 @@ Keep the password in `.env` only. Do not paste it into chat, a commit, or a log.
 | PySide6 | 6.12.0 |
 | SQLAlchemy | 2.1.8 |
 | uvicorn | 0.54.0 |
-| httpx2 (tests) | 2.16.0 |
+| httpx2 | 2.16.0 |
 | mypy | 2.4.1 |
 | pytest | 9.2.0 |
 | pytest-asyncio | 1.4.1.post1 |
 | pytest-qt | 4.5.0 |
 | ruff | 0.17.4 |
 
-Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. The dev dependency is `httpx2` 2.16.0 for that reason. Transitive pins are in `uv.lock`. NautilusTrader is not in the lockfile.
+Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. `httpx2` 2.16.0 is also a runtime dependency because the GMGN client uses it for mocked tests and for non-Windows transports. Live Windows calls use the operating-system curl instead. Transitive pins are in `uv.lock`. NautilusTrader is not in the lockfile.

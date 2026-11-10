@@ -6,15 +6,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_serializer, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.1.0"
-PHASE = "1"
+APP_VERSION = "0.2.0"
+PHASE = "2"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     database_url: str | None = None
     log_level: str = "INFO"
     log_dir: Path = Path("logs")
+    gmgn_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GMGN_API_KEY", "CYVORA_GMGN_API_KEY"),
+    )
+    gmgn_plan: Literal["free", "plus", "pro"] = "free"
+    gmgn_timeout_seconds: float = Field(default=10.0, gt=0, le=30)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -94,6 +100,32 @@ class Settings(BaseSettings):
             return value.strip().upper()
         return value
 
+    @field_validator("gmgn_api_key", mode="before")
+    @classmethod
+    def blank_api_key_is_unset(cls, value: object) -> object:
+        if value is None:
+            return None
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if isinstance(raw, str) and raw.strip() == "":
+            return None
+        if isinstance(raw, str):
+            return raw.strip()
+        return value
+
+    @field_validator("gmgn_plan", mode="before")
+    @classmethod
+    def normalize_gmgn_plan(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
+
+    @field_serializer("gmgn_api_key")
+    @classmethod
+    def serialize_api_key(cls, value: SecretStr | None) -> str | None:
+        if value is None:
+            return None
+        return "configured"
+
     @field_validator("log_level")
     @classmethod
     def require_known_log_level(cls, value: str) -> str:
@@ -118,4 +150,4 @@ def assert_runtime_safe(settings: Settings) -> None:
     if settings.api_host not in _LOOPBACK_HOSTS:
         raise ConfigurationError("Refusing to bind a non-loopback API host.")
     if settings.environment != "local":
-        raise ConfigurationError("Phase 1 only runs with CYVORA_ENVIRONMENT=local.")
+        raise ConfigurationError("CYVORA only runs with CYVORA_ENVIRONMENT=local.")

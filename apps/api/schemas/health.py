@@ -28,6 +28,7 @@ class HealthResponse(BaseModel):
     application: ComponentStatusModel
     database: ComponentStatusModel
     backend: ComponentStatusModel
+    gmgn: ComponentStatusModel
 
     @classmethod
     def from_snapshot(cls, snapshot: StatusSnapshot) -> HealthResponse:
@@ -42,4 +43,5 @@ class HealthResponse(BaseModel):
             application=ComponentStatusModel.from_status(snapshot.application),
             database=ComponentStatusModel.from_status(snapshot.database),
             backend=ComponentStatusModel.from_status(snapshot.backend),
+            gmgn=ComponentStatusModel.from_status(snapshot.gmgn),
         )

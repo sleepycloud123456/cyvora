@@ -1,17 +1,18 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository is the Phase 1 foundation: a reproducible Python 3.13 environment, a loopback health API, PostgreSQL migration scaffolding, and the CYVORA Terminal shell.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation and a Phase 2 read-only GMGN client. The desktop shows whether that client is configured. It does not show prices, balances, or orders.
 
-Live trading is not implemented. The desktop does not show market or wallet figures.
+Live trading is not implemented.
 
 Slogan: TRADE BEYOND LIMITS.
 
-## What Phase 1 includes
+## What is included
 
 - Project configuration, structured logging, and fail-closed execution modes (`READ_ONLY` or `PAPER`).
 - A FastAPI health endpoint bound to loopback.
-- SQLAlchemy models and the first Alembic revision for a local PostgreSQL database.
-- A PySide6 terminal with branding, navigation, and real application, database, and backend status.
+- SQLAlchemy models and the first Alembic revision, applied to local PostgreSQL 17.
+- A PySide6 terminal with branding, navigation, and application, database, backend, and GMGN configuration status.
+- A read-only GMGN client for market and token research. Trade and signing routes are refused.
 - Cursor project rules and `AGENTS.md`.
 
 Pages other than Dashboard and System Health are labeled placeholders. They do not contain sample trades.
@@ -23,7 +24,7 @@ Pages other than Dashboard and System Health are labeled placeholders. They do n
 - The uv-managed CPython 3.13 already present on this machine, or an equivalent CPython 3.13.
 - Git.
 
-PostgreSQL, Docker, and WSL2 are not required to run the Phase 1 shell. PostgreSQL is required before the migration can be applied. See [Environment](docs/development/ENVIRONMENT.md).
+PostgreSQL 17 is installed on this PC. Docker and WSL2 are not required. See [Environment](docs/development/ENVIRONMENT.md). The GMGN key belongs in the gitignored `.env` as `GMGN_API_KEY`. Do not add `GMGN_PRIVATE_KEY`.
 
 The Windows `py -3.13` command does not select the uv-managed interpreter on this PC. Use `uv run`.
 
@@ -37,13 +38,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_dev.ps1
 
 `setup_dev.ps1` runs `uv sync --frozen --all-groups`. That creates `.venv` from `uv.lock`. The process-scoped execution-policy flag does not change the system policy.
 
-Copy configuration only when you are ready to point at a local database:
+Copy configuration when you need a database URL or a GMGN key that is not already in `.env`:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Leave `CYVORA_DATABASE_URL` unset until PostgreSQL is installed. Do not commit `.env`.
+Do not commit `.env`, and do not paste its values into chat.
 
 ## Run
 
@@ -77,20 +78,18 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-Phase 1 does not apply migrations automatically, because no PostgreSQL server was installed during setup. After you install PostgreSQL locally:
+PostgreSQL 17 is installed and `0001_application_metadata` is the applied revision. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env` before `uv run alembic upgrade head`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
-1. Create a local role and a database.
-2. Set `CYVORA_DATABASE_URL` in the untracked `.env` file. Use the `postgresql+psycopg://` scheme.
-3. Run `uv run alembic upgrade head`.
+## GMGN
 
-Do not paste the database password into chat or into a commit. The manual install step is described in [Environment](docs/development/ENVIRONMENT.md).
+`uv run python scripts/gmgn_readonly_smoke.py` performs the read-only check when `GMGN_API_KEY` is set. It prints shapes, not the key. With no key it prints `GMGN_SMOKE_SKIP` and exits 0. Details are in [GMGN API research](docs/integrations/GMGN_API_RESEARCH.md).
 
 ## Security
 
 - The API refuses a non-loopback host.
 - `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` are rejected.
-- Logs and health payloads omit database passwords and exception text that could contain a URL.
-- No wallet, GMGN client, or transaction signer is included.
+- Logs and health payloads omit database passwords, the GMGN key, and exception text that could contain either.
+- The GMGN client does not sign and does not submit a transaction.
 
 Details are in [Security model](docs/security/SECURITY_MODEL.md).
 
@@ -100,7 +99,7 @@ Details are in [Security model](docs/security/SECURITY_MODEL.md).
 |---|---|
 | `py -3.13` says no runtime was found | The uv CPython 3.13 install is not registered with the Windows launcher. Use `uv run`. |
 | Desktop smoke fails immediately | Read the printed `CYVORA_DESKTOP_SMOKE_FAIL` line and the traceback above it. A missing display plugin is a real failure, not a skipped check. |
-| Health database state is `not_configured` | `CYVORA_DATABASE_URL` is empty. That is the expected Phase 1 state on this PC. |
+| Health database state is `not_configured` | `CYVORA_DATABASE_URL` is empty. On this PC it should be `reachable`. |
 | Health database state is `unreachable` | The URL is set and the server did not accept a connection. The driver message is withheld on purpose. |
 | `alembic upgrade` stops with `DatabaseNotConfiguredError` | The URL is still unset. Alembic will not invent a database. |
 

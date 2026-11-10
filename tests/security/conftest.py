@@ -13,7 +13,7 @@ from config.settings import get_settings
 @pytest.fixture(autouse=True)
 def clear_cyvora_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for key in list(os.environ):
-        if key.startswith("CYVORA_"):
+        if key.startswith("CYVORA_") or key in {"GMGN_API_KEY", "GMGN_PRIVATE_KEY"}:
             monkeypatch.delenv(key, raising=False)
     get_settings.cache_clear()
     yield

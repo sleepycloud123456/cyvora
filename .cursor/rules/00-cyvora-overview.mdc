@@ -14,7 +14,8 @@ Boundaries already in the code:
 - The PySide6 desktop presents status. Network and database checks stay off the UI thread.
 - The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
 - PostgreSQL is the application database. Do not silently substitute SQLite.
-- NautilusTrader is not installed in Phase 1. Do not mix 1.x examples with 2.x code.
+- NautilusTrader is not installed. Do not mix 1.x examples with 2.x code.
+- `integrations/gmgn` is read-only. Do not add a swap, a signature, or a call that is absent from `docs/integrations/GMGN_API_RESEARCH.md`.
 
 Do not present placeholder screens or mock payloads as live market, wallet, or exchange data.
 

@@ -26,3 +26,4 @@ class StatusSnapshot:
     application: ComponentStatus
     database: ComponentStatus
     backend: ComponentStatus
+    gmgn: ComponentStatus

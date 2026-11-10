@@ -21,6 +21,6 @@ class PlaceholderPage(QWidget):
 
     def show_page(self, name: str) -> None:
         self.body.setText(
-            f"Placeholder. {name} is not implemented in Phase 1. "
+            f"Placeholder. {name} is not implemented in Phase 2. "
             "No market, wallet, portfolio, or trading data is shown here."
         )

@@ -24,7 +24,8 @@ class HealthPage(QWidget):
         mode = "PAPER" if settings.execution_mode is ExecutionMode.PAPER else "READ-ONLY"
         self.summary = QLabel(
             f"Phase {PHASE}. Mode {mode}. Python {sys.version.split()[0]}. "
-            "Live trading is locked. These checks do not query GMGN or a wallet."
+            "Live trading is locked. The GMGN card shows whether an API key is "
+            "configured. This page does not request market data."
         )
         self.summary.setObjectName("Notice")
         self.summary.setWordWrap(True)
@@ -33,9 +34,11 @@ class HealthPage(QWidget):
         self.application_card = StatusCard("Application")
         self.database_card = StatusCard("Database")
         self.backend_card = StatusCard("Backend")
+        self.gmgn_card = StatusCard("GMGN")
         row.addWidget(self.application_card)
         row.addWidget(self.database_card)
         row.addWidget(self.backend_card)
+        row.addWidget(self.gmgn_card)
         layout.addWidget(self.summary)
         layout.addLayout(row)
         layout.addStretch(1)
@@ -51,11 +54,13 @@ class HealthPage(QWidget):
     def show_probe_failure(self, message: str) -> None:
         self.database_card.set_status("unknown", message)
         self.backend_card.set_status("unknown", message)
+        self.gmgn_card.set_status("unknown", message)
 
     def apply_snapshot(self, snapshot: StatusSnapshot) -> None:
         self.application_card.apply(snapshot.application)
         self.database_card.apply(snapshot.database)
         self.backend_card.apply(snapshot.backend)
+        self.gmgn_card.apply(snapshot.gmgn)
 
     def _cards(self) -> tuple[StatusCard, ...]:
-        return (self.application_card, self.database_card, self.backend_card)
+        return (self.application_card, self.database_card, self.backend_card, self.gmgn_card)
