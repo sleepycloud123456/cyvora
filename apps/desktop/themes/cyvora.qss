@@ -1,0 +1,95 @@
+QWidget {
+    background-color: #070B14;
+    color: #E6F1F5;
+    font-family: "Segoe UI";
+    font-size: 13px;
+}
+
+#Sidebar {
+    background-color: #0B1220;
+    border-right: 1px solid #1E3A4C;
+}
+
+#Content {
+    background-color: #070B14;
+}
+
+#BrandTitle {
+    font-size: 22px;
+    font-weight: 700;
+    color: #22D3EE;
+}
+
+#Slogan {
+    color: #2DD4BF;
+    font-size: 11px;
+}
+
+#ModeBadge {
+    background-color: #12343A;
+    color: #2DD4BF;
+    border: 1px solid #1E6F78;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-weight: 600;
+}
+
+#LockNote {
+    color: #8AA0B2;
+    font-size: 12px;
+}
+
+#Navigation {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+#Navigation::item {
+    padding: 8px 10px;
+    margin: 1px 0;
+    border-radius: 8px;
+    color: #C5D5E0;
+}
+
+#Navigation::item:selected {
+    background: #12343A;
+    color: #22D3EE;
+}
+
+#Navigation::item:hover {
+    background: #132033;
+}
+
+#PageTitle {
+    font-size: 24px;
+    font-weight: 650;
+    color: #E6F1F5;
+}
+
+#Notice {
+    color: #8AA0B2;
+    font-size: 13px;
+}
+
+#StatusCard {
+    background-color: #0E1626;
+    border: 1px solid #1E3A4C;
+    border-radius: 12px;
+}
+
+#CardTitle {
+    color: #8AA0B2;
+    font-size: 12px;
+}
+
+#StateValue {
+    color: #22D3EE;
+    font-size: 18px;
+    font-weight: 650;
+}
+
+#CardDetail {
+    color: #C5D5E0;
+    font-size: 12px;
+}
