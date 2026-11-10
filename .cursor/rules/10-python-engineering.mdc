@@ -1,0 +1,14 @@
+---
+description: Python typing, structure, and error-handling conventions
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python engineering
+
+- Target Python 3.13 and type public functions.
+- Keep code in `apps`, `config`, `database`, `domain`, and `monitoring` until a later phase adds a package.
+- Use `Decimal` for authoritative money or token quantities. Do not introduce those values as binary floats.
+- Raise `domain.exceptions.CyvoraError` for expected failures. Do not use a bare `except`.
+- Do not log secrets, database URLs, tokens, or authorization headers.
+- Run `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy` with the tests.

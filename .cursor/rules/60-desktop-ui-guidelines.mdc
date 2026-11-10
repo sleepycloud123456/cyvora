@@ -1,0 +1,13 @@
+---
+description: CYVORA Terminal visual and threading rules
+globs: "apps/desktop/**/*"
+alwaysApply: false
+---
+
+# Desktop UI
+
+- Keep colors in `apps/desktop/themes/cyvora.qss`. Surfaces are navy and near-black. Accents are cyan `#22D3EE` and turquoise `#2DD4BF`.
+- The brand is `CYVORA`. The slogan is `TRADE BEYOND LIMITS.`
+- Unfinished pages must say they are Phase 1 placeholders. Do not fill them with invented prices, balances, or win rates.
+- Run network and database checks on `StatusProbe`, not on the UI thread.
+- Do not add live-trading or manual-order controls in Phase 1.
