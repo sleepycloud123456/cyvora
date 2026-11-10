@@ -1,0 +1,13 @@
+---
+description: Test expectations for CYVORA
+globs: "tests/**/*.py"
+alwaysApply: false
+---
+
+# Testing
+
+- Run `uv run pytest`. Tests must not call a production swap, wallet, or paid API.
+- Do not require a real wallet. Skip PostgreSQL checks when `CYVORA_DATABASE_URL` is unset.
+- Assert that placeholder pages identify themselves as placeholders.
+- Keep secret-redaction tests for configuration and any future execution path.
+- Record a failed launch in `PROJECT_STATUS.md` instead of weakening the test.

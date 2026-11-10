@@ -1,0 +1,12 @@
+﻿# Keep secrets and local environments out of agent context.
+# Source, tests, and project docs stay visible.
+.env
+.env.*
+!.env.example
+.venv/
+logs/
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/

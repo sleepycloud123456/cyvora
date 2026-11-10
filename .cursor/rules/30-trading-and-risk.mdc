@@ -1,0 +1,14 @@
+---
+description: Trading safeguards and CYVORA Shield authority
+alwaysApply: true
+---
+
+# Trading and risk
+
+Phase 1 has no strategy, order, or wallet code. When those packages are added:
+
+- CYVORA Shield is the only trade-approval authority. Strategies, the desktop, and any AI output cannot bypass it.
+- The default mode remains `READ_ONLY` or `PAPER`. Paper code must not call a swap or a signer.
+- A submission response is not a fill. Reconcile before retrying an uncertain request.
+- Do not invent GMGN endpoints or Nautilus order types. Record the source, date, and limits before coding an integration.
+- Unknown token-security data is not safe. A planned stop price is not a guaranteed exit price.

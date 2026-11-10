@@ -1,0 +1,18 @@
+---
+description: Cursor agent workflow for CYVORA
+alwaysApply: true
+---
+
+# Cursor workflow
+
+Read `PROJECT_STATUS.md` and the modules you will change before editing.
+
+For work beyond a small fix, name the modules, risks, and tests first. Implement in reviewable steps.
+
+After editing, run the relevant tests. Run `uv run python -m apps.desktop.main --smoke` when desktop code changes. Update `PROJECT_STATUS.md` and `CHANGELOG.md` when behavior or phase status changes.
+
+Do not use `git reset --hard`, force-push, or history rewriting unless the user explicitly asks.
+
+Do not install a NautilusTrader nightly, release candidate, or a second major version beside the candidate recorded in `docs/architecture/TECHNICAL_DECISIONS.md`.
+
+Do not create empty packages only to match the future tree in the master prompt.

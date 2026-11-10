@@ -1,0 +1,21 @@
+---
+description: CYVORA identity, phase gates, and architecture boundaries
+alwaysApply: true
+---
+
+# CYVORA overview
+
+CYVORA is a local-first Windows trading platform. The product is the CYVORA Autonomous Trading Platform. The desktop application is CYVORA Terminal. This workspace is the project root; do not create a nested `cyvora/` package root.
+
+Read `PROJECT_STATUS.md` before starting work. Do not begin the next roadmap phase until the user explicitly asks and the current phase definition of done has been verified.
+
+Boundaries already in the code:
+
+- The PySide6 desktop presents status. Network and database checks stay off the UI thread.
+- The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
+- PostgreSQL is the application database. Do not silently substitute SQLite.
+- NautilusTrader is not installed in Phase 1. Do not mix 1.x examples with 2.x code.
+
+Do not present placeholder screens or mock payloads as live market, wallet, or exchange data.
+
+The Python target is 3.13 (`requires-python` in `pyproject.toml`). Run tools with `uv run`. The Windows `py` launcher on this machine defaults to Python 3.15 and does not resolve `py -3.13`.
