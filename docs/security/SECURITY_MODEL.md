@@ -1,19 +1,23 @@
 # Security model
 
-Phase 1 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 2 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
 | Data | Where it lives | Phase 1 behavior |
 |---|---|---|
 | Execution mode, host, port, log level | Environment or `.env` | Loaded by pydantic-settings. `.env` is gitignored. |
-| Database URL | `CYVORA_DATABASE_URL` | Optional. Password is never written to health output or the CYVORA log. |
+| Database URL | `CYVORA_DATABASE_URL` | Set on this PC. Password is never written to health output or the CYVORA log. |
+| GMGN API key | `GMGN_API_KEY`, or `CYVORA_GMGN_API_KEY` | `SecretStr`. Logs, `repr`, and `model_dump` do not show the value. Health reports `configured` or `not_configured`. |
 | Application status | Memory | Returned by `/health` and shown in the terminal. |
-| Market, wallet, and order data | Not collected | No client exists. |
+| Market data | GMGN read-only calls | Not stored. Not shown in the terminal. |
+| Wallet keys and orders | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
 
 ## Credentials
 
-No GMGN key, Telegram token, AI key, wallet seed, or private key is read or stored. `.env.example` uses the literal placeholder `CHANGE_ME` inside a comment. `.cursorignore` excludes `.env`, key files, and `secrets/`.
+The GMGN API key is read from `.env` and is not written to git. Telegram tokens, AI keys, wallet seeds, and private keys are not read. `.env.example` uses the literal placeholder `CHANGE_ME`. `.cursorignore` excludes `.env`, key files, and `secrets/`.
+
+The Windows GMGN transport writes the key into a temporary curl config and deletes that directory before returning. Curl is started with `--disable` so a user curlrc cannot add a proxy. Redirects are not followed, so the key header is not sent to another host. A header value that contains a quote or a newline is refused before the file is used.
 
 Agents must not print the environment and must not open `.env`.
 
@@ -21,7 +25,7 @@ Agents must not print the environment and must not open `.env`.
 
 `ExecutionMode` contains `READ_ONLY` and `PAPER` only. The settings validator rejects `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` before the process starts. `assert_runtime_safe` repeats that check. `live_trading_enabled` in the health payload is the constant `false`.
 
-There is no signer, no swap function, and no transaction builder.
+There is no signer and no transaction builder. `GMGNExecutionGateway.submit` raises `GMGNExecutionBlocked` and does not open a socket. `GET /v1/user/wallet_holdings` raises before HTTP because the official client signs it.
 
 ## Local API
 

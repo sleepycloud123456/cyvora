@@ -19,13 +19,29 @@ def test_health_reports_unconfigured_database(tmp_path: Path) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["app_name"] == APP_NAME
-    assert body["phase"] == "1"
+    assert body["phase"] == "2"
     assert body["execution_mode"] == "READ_ONLY"
     assert body["live_trading_enabled"] is False
     assert body["status"] == "ok"
     assert body["database"]["state"] == "not_configured"
     assert body["backend"]["state"] == "running"
+    assert body["gmgn"]["state"] == "not_configured"
     assert "portfolio" not in response.text.lower()
+
+
+def test_health_hides_a_configured_gmgn_key(tmp_path: Path) -> None:
+    settings = Settings(
+        _env_file=None,
+        log_dir=tmp_path,
+        gmgn_api_key="gmgn-test-key-not-real",
+    )
+    response = TestClient(create_app(settings)).get("/health")
+    assert response.status_code == 200
+    assert response.json()["gmgn"]["state"] == "configured"
+    assert "gmgn-test-key-not-real" not in response.text
+    log_text = (tmp_path / "cyvora.log").read_text(encoding="utf-8")
+    assert "gmgn-test-key-not-real" not in log_text
+    assert "gmgn=configured" in log_text
 
 
 def test_health_degrades_when_database_is_unreachable(tmp_path: Path) -> None:

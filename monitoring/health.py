@@ -50,6 +50,24 @@ def collect_status(settings: Settings, *, probe_backend: bool) -> StatusSnapshot
         ),
         database=database,
         backend=backend,
+        gmgn=gmgn_configuration_status(settings),
+    )
+
+
+def gmgn_configuration_status(settings: Settings) -> ComponentStatus:
+    """Report whether a GMGN key is configured. This does not call GMGN."""
+
+    if settings.gmgn_api_key is None:
+        return ComponentStatus(
+            state="not_configured",
+            detail="GMGN_API_KEY is not set. GMGN has not been contacted.",
+        )
+    return ComponentStatus(
+        state="configured",
+        detail=(
+            "A GMGN API key is set. This health check does not call GMGN, "
+            "so no market data was requested."
+        ),
     )
 
 
@@ -105,7 +123,8 @@ def log_startup(settings: Settings) -> None:
     """Log a startup line that omits the database URL."""
 
     logger.info(
-        "startup app=%s version=%s phase=%s environment=%s mode=%s host=%s port=%s database=%s",
+        "startup app=%s version=%s phase=%s environment=%s mode=%s "
+        "host=%s port=%s database=%s gmgn=%s",
         APP_NAME,
         APP_VERSION,
         PHASE,
@@ -114,4 +133,5 @@ def log_startup(settings: Settings) -> None:
         settings.api_host,
         settings.api_port,
         "configured" if settings.database_url else "not_configured",
+        "configured" if settings.gmgn_api_key is not None else "not_configured",
     )

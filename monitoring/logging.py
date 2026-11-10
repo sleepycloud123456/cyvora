@@ -5,8 +5,23 @@ from __future__ import annotations
 import logging
 
 from config.settings import Settings
+from monitoring.redaction import redact_text, secret_values
 
 _LOGGER_NAME = "cyvora"
+
+
+class RedactingFormatter(logging.Formatter):
+    """Format a log record, then strip credentials from the finished line."""
+
+    def __init__(self, secrets: tuple[str, ...] = ()) -> None:
+        super().__init__(
+            fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+        )
+        self._secrets = secrets
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_text(super().format(record), self._secrets)
 
 
 def configure_logging(settings: Settings) -> logging.Logger:
@@ -24,10 +39,7 @@ def configure_logging(settings: Settings) -> logging.Logger:
         handler.close()
         logger.removeHandler(handler)
 
-    formatter = logging.Formatter(
-        fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
-    )
+    formatter = RedactingFormatter(secret_values(settings))
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     file_handler = logging.FileHandler(settings.log_dir / "cyvora.log", encoding="utf-8")

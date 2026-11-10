@@ -34,11 +34,17 @@ Show-Check "Node" { node --version }
 Show-Check "npm" { npm --version }
 
 Show-Check "psql" {
-    if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
-        Write-Output "MISSING: psql is not on PATH"
+    $bundled = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
+    if (Get-Command psql -ErrorAction SilentlyContinue) {
+        psql --version
         return
     }
-    psql --version
+    if (Test-Path $bundled) {
+        & $bundled --version
+        Write-Output "NOTE: psql is not on PATH. The version above used $bundled"
+        return
+    }
+    Write-Output "MISSING: psql is not on PATH and $bundled is absent"
 }
 
 Show-Check "Docker" {

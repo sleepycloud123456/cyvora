@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 1 is the development foundation. Do not start Phase 2 (GMGN), trading strategies, wallet access, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 1 verified.
+Phase 2 is the GMGN read-only client. Do not start Phase 3 (Radar, scoring, historical storage, watchlists), trading strategies, wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 2 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -41,10 +41,11 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Settings | `config/settings.py` | Environment loading and fail-closed checks |
 | Database | `database/` | Engine, models, Alembic revisions |
 | Shared types | `domain/` | Modes, errors, status values |
-| Operations | `monitoring/` | Logging and health collection |
-| Tests | `tests/` | Unit, security, and the optional database check |
+| Operations | `monitoring/` | Logging, redaction, and health collection |
+| GMGN | `integrations/gmgn/` | Read-only Agent API client. No signing and no trade calls. |
+| Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN smoke |
 
-Do not add empty packages for Radar, Shield, strategies, or GMGN until that phase starts.
+Do not add empty packages for Radar, Shield, or strategies until that phase starts.
 
 ## Workflow
 
@@ -78,4 +79,5 @@ uv run cyvora-desktop
 - `docs/architecture/ARCHITECTURE.md` — what exists now.
 - `docs/architecture/TECHNICAL_DECISIONS.md` — choices and tradeoffs.
 - `docs/security/SECURITY_MODEL.md` — credentials and fail-closed behavior.
-- `docs/ROADMAP.md` — later phases, not implemented.
+- `docs/ROADMAP.md` — later phases. Phase 3 is not implemented.
+- `docs/integrations/GMGN_API_RESEARCH.md` — verified GMGN behavior and the live shapes.

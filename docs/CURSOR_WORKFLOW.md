@@ -44,6 +44,6 @@ Review the diff before accepting it. Check that no `.env`, log, or virtual envir
 - A global change to Cursor settings, extensions, or the model list.
 - Wallet operations and unrestricted terminal permissions.
 
-## Continue after Phase 1
+## Continue after Phase 2
 
-The next engineering task is not more UI. It is a local PostgreSQL install, then `uv run alembic upgrade head`, then your explicit go-ahead for Phase 2 research. Phase 2 still does not include swaps.
+PostgreSQL 17 is installed and the GMGN read-only client is in the tree. The next engineering task is Phase 3 only after an explicit request. Phase 3 is Radar and token intelligence. It is not a swap, a signer, or a wallet binding experiment.

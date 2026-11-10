@@ -63,6 +63,14 @@ Database and HTTP checks run on a `QThread`. The UI thread only applies a finish
 
 The `cyvora` logger writes a fixed text format to stderr and `logs/cyvora.log`. Startup logs whether a database URL is configured, not the URL. Unhandled API errors log the exception type and the path.
 
+## GMGN client
+
+Date: 2026-11-11.
+
+The HTTP package is `httpx2`, which Starlette already uses. A second HTTP library was not added. On this PC Cloudflare answers `httpx2` with an HTML 403 and answers `C:\Windows\System32\curl.exe` with JSON, so the Windows transport shells out to that binary. The key is not a process argument. Tests inject `httpx2.MockTransport` and do not need curl.
+
+The client sends exist-auth only. Kline `from` and `to` are converted from Unix seconds to milliseconds because `src/commands/market.ts` does that before `OpenApiClient`. Rank responses observed live wrap `data.rank` in a second envelope, and only that route unwraps it. The default rate-limit plan is `free`.
+
 ## What was left out on purpose
 
-Empty directories for Radar, Shield, strategies, GMGN, Telegram, backtesting, and cloud deployment are not created. The prompt says to create modules when their implementation is scheduled.
+Empty directories for Radar, Shield, strategies, Telegram, backtesting, and cloud deployment are not created. The GMGN package exists because Phase 2 scheduled it. It does not contain a swap or a signer.

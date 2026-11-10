@@ -9,7 +9,7 @@ from domain.status import StatusSnapshot
 
 
 class DashboardPage(QWidget):
-    """Phase 1 dashboard. It does not invent portfolio or market figures."""
+    """Status dashboard. It does not invent portfolio or market figures."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -17,8 +17,9 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(0, 12, 0, 0)
         layout.setSpacing(16)
         self.notice = QLabel(
-            "Phase 1 shows application status only. Portfolio value, token prices, "
-            "positions, and profit figures are not available and are not displayed."
+            "Phase 2 shows whether a GMGN API key is configured. Portfolio value, "
+            "token prices, positions, and profit figures are not available on this "
+            "page and are not displayed."
         )
         self.notice.setObjectName("Notice")
         self.notice.setWordWrap(True)
@@ -27,9 +28,11 @@ class DashboardPage(QWidget):
         self.application_card = StatusCard("Application")
         self.database_card = StatusCard("Database")
         self.backend_card = StatusCard("Backend")
+        self.gmgn_card = StatusCard("GMGN")
         row.addWidget(self.application_card)
         row.addWidget(self.database_card)
         row.addWidget(self.backend_card)
+        row.addWidget(self.gmgn_card)
         layout.addWidget(self.notice)
         layout.addLayout(row)
         layout.addStretch(1)
@@ -45,11 +48,13 @@ class DashboardPage(QWidget):
     def show_probe_failure(self, message: str) -> None:
         self.database_card.set_status("unknown", message)
         self.backend_card.set_status("unknown", message)
+        self.gmgn_card.set_status("unknown", message)
 
     def apply_snapshot(self, snapshot: StatusSnapshot) -> None:
         self.application_card.apply(snapshot.application)
         self.database_card.apply(snapshot.database)
         self.backend_card.apply(snapshot.backend)
+        self.gmgn_card.apply(snapshot.gmgn)
 
     def _cards(self) -> tuple[StatusCard, ...]:
-        return (self.application_card, self.database_card, self.backend_card)
+        return (self.application_card, self.database_card, self.backend_card, self.gmgn_card)
