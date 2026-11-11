@@ -93,3 +93,40 @@ QWidget {
     color: #C5D5E0;
     font-size: 12px;
 }
+
+QTableWidget {
+    background-color: #0E1626;
+    alternate-background-color: #101A2C;
+    color: #E6F1F5;
+    gridline-color: #1E3A4C;
+    selection-background-color: #12343A;
+    selection-color: #22D3EE;
+    border: 1px solid #1E3A4C;
+}
+
+QHeaderView::section {
+    background-color: #0B1220;
+    color: #8AA0B2;
+    border: none;
+    padding: 6px;
+}
+
+QLineEdit, QComboBox {
+    background-color: #0E1626;
+    color: #E6F1F5;
+    border: 1px solid #1E3A4C;
+    border-radius: 8px;
+    padding: 6px 8px;
+}
+
+QPushButton#PrimaryButton, QPushButton#SecondaryButton {
+    background-color: #12343A;
+    color: #22D3EE;
+    border: 1px solid #1E6F78;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+QCheckBox {
+    color: #C5D5E0;
+}

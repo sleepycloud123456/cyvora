@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -19,10 +19,14 @@ from apps.desktop.navigation import DASHBOARD, PAGES, SYSTEM_HEALTH
 from apps.desktop.pages.dashboard_page import DashboardPage
 from apps.desktop.pages.health_page import HealthPage
 from apps.desktop.pages.placeholder_page import PlaceholderPage
+from apps.desktop.pages.radar_page import RadarPage
 from apps.desktop.services.probe import StatusProbe
+from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.status import StatusSnapshot
+from intelligence.schedule import next_delay_seconds
+from intelligence.store import CycleSnapshot
 
 
 class MainWindow(QMainWindow):
@@ -33,15 +37,22 @@ class MainWindow(QMainWindow):
         self._settings = settings
         self._closing = False
         self._probe: StatusProbe | None = None
+        self._radar_load: RadarLoadWorker | None = None
+        self._radar_cycle: RadarCycleWorker | None = None
+        self._watch_worker: WatchWorker | None = None
+        self._cycle_generation = 0
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
         self._build()
         self._show_page(DASHBOARD)
         if start_probe:
             self.start_probe()
+            self._load_radar()
         else:
             self.dashboard.set_idle()
             self.health.set_idle()
+            if self._settings.database_url is None:
+                self._radar_message("Radar storage is not configured. No tokens are shown.")
 
     def _build(self) -> None:
         shell = QWidget()
@@ -103,9 +114,21 @@ class MainWindow(QMainWindow):
         self.dashboard = DashboardPage()
         self.health = HealthPage(self._settings)
         self.placeholder = PlaceholderPage()
+        self.scanner = RadarPage("scanner")
+        self.trending = RadarPage("trending")
+        self.launches = RadarPage("launches")
+        self.analysis = RadarPage("analysis")
+        self.smart_money = RadarPage("smart")
+        self.whales = RadarPage("whale")
+        self.scanner.run_button.clicked.connect(self._start_cycle)
+        self.scanner.continuous.toggled.connect(self._continuous_toggled)
+        self.scanner.watch_add.connect(self._add_watch)
+        self.scanner.watch_remove.connect(self._remove_watch)
         self.stack.addWidget(self.dashboard)
         self.stack.addWidget(self.health)
         self.stack.addWidget(self.placeholder)
+        for page in self._radar_pages():
+            self.stack.addWidget(page)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
         return content
@@ -124,6 +147,17 @@ class MainWindow(QMainWindow):
             return
         if name == SYSTEM_HEALTH:
             self.stack.setCurrentWidget(self.health)
+            return
+        radar = {
+            "Live Scanner": self.scanner,
+            "Trending Tokens": self.trending,
+            "New Launches": self.launches,
+            "Token Analysis": self.analysis,
+            "Smart Money": self.smart_money,
+            "Whale Tracker": self.whales,
+        }.get(name)
+        if radar is not None:
+            self.stack.setCurrentWidget(radar)
             return
         self.placeholder.show_page(name)
         self.stack.setCurrentWidget(self.placeholder)
@@ -150,7 +184,110 @@ class MainWindow(QMainWindow):
 
     def shutdown(self) -> None:
         self._closing = True
+        self._cycle_generation += 1
         probe = self._probe
         if probe is not None and probe.isRunning():
             probe.requestInterruption()
             probe.wait(4000)
+        for worker in (self._radar_load, self._radar_cycle, self._watch_worker):
+            if worker is not None and worker.isRunning():
+                worker.requestInterruption()
+                worker.wait(4000)
+
+    def _radar_pages(self) -> tuple[RadarPage, ...]:
+        return (
+            self.scanner,
+            self.trending,
+            self.launches,
+            self.analysis,
+            self.smart_money,
+            self.whales,
+        )
+
+    def _radar_message(self, text: str) -> None:
+        for page in self._radar_pages():
+            page.show_message(text)
+
+    def _load_radar(self) -> None:
+        if not self._settings.database_url:
+            self._radar_message("Radar storage is not configured. No tokens are shown.")
+            return
+        self._radar_load = RadarLoadWorker(self._settings)
+        self._radar_load.loaded.connect(self._apply_radar)
+        self._radar_load.failed.connect(self._radar_message)
+        self._radar_load.start()
+
+    def _apply_radar(self, snapshot: object) -> None:
+        if self._closing:
+            return
+        if snapshot is not None and not isinstance(snapshot, CycleSnapshot):
+            return
+        for page in self._radar_pages():
+            page.show_snapshot(snapshot if isinstance(snapshot, CycleSnapshot) else None)
+
+    def _start_cycle(self, generation: int | None = None) -> None:
+        if self._closing:
+            return
+        if generation is not None and generation != self._cycle_generation:
+            return
+        if not self._settings.database_url:
+            self.scanner.show_message("Radar storage is not configured. The cycle was not started.")
+            return
+        if self._settings.gmgn_api_key is None:
+            self.scanner.show_message("GMGN_API_KEY is not set. The cycle was not started.")
+            return
+        if self._radar_cycle is not None and self._radar_cycle.isRunning():
+            return
+        for page in self._radar_pages():
+            page.set_running(True)
+        self._radar_cycle = RadarCycleWorker(self._settings)
+        self._radar_cycle.finished_ok.connect(self._cycle_finished)
+        self._radar_cycle.failed.connect(self._cycle_failed)
+        self._radar_cycle.start()
+
+    def _cycle_finished(self, message: str) -> None:
+        if self._closing:
+            return
+        for page in self._radar_pages():
+            page.set_running(False)
+        self.scanner.show_message(message)
+        self._load_radar()
+        self._schedule_next()
+
+    def _cycle_failed(self, message: str) -> None:
+        if self._closing:
+            return
+        for page in self._radar_pages():
+            page.set_running(False)
+        self.scanner.show_message(message)
+        self._load_radar()
+        self._schedule_next()
+
+    def _schedule_next(self) -> None:
+        worker = self._radar_cycle
+        if worker is None or worker.last_result is None or not self.scanner.continuous.isChecked():
+            return
+        delay = next_delay_seconds(self._settings.radar_scan_interval_seconds, worker.last_result)
+        generation = self._cycle_generation
+        QTimer.singleShot(delay * 1000, lambda: self._start_cycle(generation))
+
+    def _continuous_toggled(self, checked: bool) -> None:
+        if not checked:
+            self._cycle_generation += 1
+
+    def _add_watch(self, chain: str, address: str, symbol: str) -> None:
+        self._change_watch("add", chain, address, symbol)
+
+    def _remove_watch(self, chain: str, address: str) -> None:
+        self._change_watch("remove", chain, address, "")
+
+    def _change_watch(self, action: str, chain: str, address: str, symbol: str) -> None:
+        if not self._settings.database_url:
+            self.scanner.show_message("Radar storage is not configured.")
+            return
+        if self._watch_worker is not None and self._watch_worker.isRunning():
+            return
+        self._watch_worker = WatchWorker(self._settings, action, chain, address, symbol)
+        self._watch_worker.finished_ok.connect(self._load_radar)
+        self._watch_worker.failed.connect(self.scanner.show_message)
+        self._watch_worker.start()

@@ -27,4 +27,13 @@ PAGES: tuple[str, ...] = (
     SYSTEM_HEALTH,
 )
 
-IMPLEMENTED_PAGES = frozenset({DASHBOARD, SYSTEM_HEALTH})
+RADAR_MODES = {
+    "Live Scanner": "rankings",
+    "Trending Tokens": "trending",
+    "New Launches": "launches",
+    "Token Analysis": "analysis",
+    "Smart Money": "smart",
+    "Whale Tracker": "whales",
+}
+
+IMPLEMENTED_PAGES = frozenset({DASHBOARD, SYSTEM_HEALTH, *RADAR_MODES})

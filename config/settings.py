@@ -6,15 +6,22 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, field_serializer, field_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.2.0"
-PHASE = "2"
+APP_VERSION = "0.3.0"
+PHASE = "3"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -48,6 +55,17 @@ class Settings(BaseSettings):
     )
     gmgn_plan: Literal["free", "plus", "pro"] = "free"
     gmgn_timeout_seconds: float = Field(default=10.0, gt=0, le=30)
+    api_token: SecretStr | None = None
+    radar_chain: Literal["sol"] = "sol"
+    radar_rank_interval: Literal["1m", "5m", "1h", "6h", "24h"] = "1h"
+    radar_trending_limit: int = Field(default=3, ge=1, le=20)
+    radar_launch_limit: int = Field(default=3, ge=1, le=20)
+    radar_analyse_limit: int = Field(default=2, ge=1, le=3)
+    radar_budget_weight: int = Field(default=30, ge=10, le=80)
+    radar_scan_interval_seconds: int = Field(default=120, ge=60, le=3600)
+    radar_kline_resolution: Literal["1m", "5m", "15m", "1h"] = "1m"
+    radar_kline_lookback_seconds: int = Field(default=7200, ge=300, le=86400)
+    radar_market_retention_days: int = Field(default=90, ge=7, le=3650)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -119,12 +137,50 @@ class Settings(BaseSettings):
             return value.strip().lower()
         return value
 
-    @field_serializer("gmgn_api_key")
+    @field_serializer("gmgn_api_key", "api_token")
     @classmethod
-    def serialize_api_key(cls, value: SecretStr | None) -> str | None:
+    def serialize_secret(cls, value: SecretStr | None) -> str | None:
         if value is None:
             return None
         return "configured"
+
+    @field_validator("api_token", mode="before")
+    @classmethod
+    def blank_api_token_is_unset(cls, value: object) -> object:
+        if value is None:
+            return None
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if isinstance(raw, str) and raw.strip() == "":
+            return None
+        if isinstance(raw, str):
+            return raw.strip()
+        return value
+
+    @field_validator("api_token")
+    @classmethod
+    def require_api_token_length(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        if len(value.get_secret_value()) < 16:
+            raise ValueError("CYVORA_API_TOKEN must be at least 16 characters.")
+        return value
+
+    @model_validator(mode="after")
+    def radar_budget_covers_discovery_and_core_reads(self) -> Settings:
+        """Keep a cycle inside a weight budget that can finish the core reads.
+
+        Discovery is weight 5. Each analysed token needs weight 5 for info,
+        security, pool, and kline. Holder and trader reads are optional and
+        use whatever weight remains.
+        """
+
+        needed = 5 + (self.radar_analyse_limit * 5)
+        if self.radar_budget_weight < needed:
+            raise ValueError(
+                "CYVORA_RADAR_BUDGET_WEIGHT must cover discovery plus the core "
+                "reads for CYVORA_RADAR_ANALYSE_LIMIT tokens."
+            )
+        return self
 
     @field_validator("log_level")
     @classmethod

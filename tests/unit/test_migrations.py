@@ -17,7 +17,7 @@ def test_initial_revision_creates_application_metadata() -> None:
     assert "placeholder" not in source.lower()
 
 
-def test_alembic_heads_lists_phase1_revision() -> None:
+def test_alembic_heads_lists_the_radar_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "heads"],
@@ -27,4 +27,5 @@ def test_alembic_heads_lists_phase1_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0001_application_metadata" in result.stdout
+    assert "0002_radar_intelligence" in result.stdout
+    assert "postgresql" not in result.stdout.lower()

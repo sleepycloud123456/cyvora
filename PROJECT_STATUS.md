@@ -4,79 +4,78 @@ Date: 2026-11-11.
 
 ## Current phase
 
-Phase 2 — GMGN read-only integration. The definition of done for this phase is met. Phase 3 has not started.
+Phase 3 — CYVORA Radar and intelligence. The definition of done for this phase is met. Phase 4 has not started.
 
 ## Current milestone
 
-CYVORA can read GMGN market and token data with the local API key, and it refuses every trade and signing route. PostgreSQL 17 is installed and the Phase 1 migration is applied.
+CYVORA can discover Solana tokens from GMGN, score them with a documented read-only rubric, and store the cycle in PostgreSQL. The terminal and the loopback API show that store. A score does not authorize an order.
 
 ## Completed work
 
-- Phase 1 foundation, merged as PR #1. The checkout this phase started from was `main` at `bc12d05`.
-- Confirmed PostgreSQL 17.11 is the Windows service `postgresql-x64-17` (Running, Automatic). `psql` is not on `PATH`. The client is `C:\Program Files\PostgreSQL\17\bin\psql.exe`. Alembic current and head are both `0001_application_metadata`.
-- Investigated the GMGN Agent API from the official docs and `GMGNAI/gmgn-skills` `main` (`gmgn-cli` 1.7.1). Findings are in `docs/integrations/GMGN_API_RESEARCH.md`.
-- Added `integrations/gmgn`: exist-auth reads, a free-plan rate limiter, response models, and an execution gateway that only refuses.
-- Live Windows calls go through `C:\Windows\System32\curl.exe` because Cloudflare blocked `httpx2` with an HTML 403. The API key stays in a temporary config file, not on the command line.
-- Health and the terminal show `gmgn=configured` or `not_configured`. They do not call GMGN and they do not show prices.
+- Phase 1 foundation, merged as PR #1.
+- Phase 2 read-only GMGN client, merged as PR #2 (`4c48ad7`).
+- Phase 3 radar cycle in `intelligence/`, revision `0002_radar_intelligence`, authenticated `/radar` routes, and terminal pages for the scanner, trending, launches, analysis, smart money, and whales.
+- Alembic head on this machine is `0002_radar_intelligence`.
+- One live read-only cycle was stored as cycle 1. See Tests.
 
 ## In progress
 
-Nothing inside Phase 2.
+Nothing inside Phase 3.
 
 ## Blockers
 
-None for Phase 2. The GMGN key is not bound to a wallet: `GET /v1/user/info` returned a `wallets` list of length 0. Portfolio monitoring and swaps stay unavailable until that is resolved without loading a private key.
+None for Phase 3. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused.
 
 ## Tests
 
-Final run on 2026-11-11, after the live parser fixes:
+Final run on 2026-11-11, after the rate-limiter fix and the live cycle:
 
 - `uv run ruff check .` — passed.
-- `uv run ruff format --check .` — 91 files already formatted.
-- `uv run mypy` — no issues in 57 source files.
-- `uv run pytest -rs` — 53 passed, 1 skipped.
-- Skip: `tests/integration/test_gmgn_live_smoke.py` unless `CYVORA_GMGN_LIVE_SMOKE=1`.
+- `uv run ruff format --check .` — 120 files already formatted.
+- `uv run mypy` — no issues in 81 source files.
+- `uv run pytest -rs` — 69 passed, 2 skipped.
+- Skips: `tests/integration/test_gmgn_live_smoke.py` unless `CYVORA_GMGN_LIVE_SMOKE=1`, and `tests/integration/test_radar_live.py` unless `CYVORA_RADAR_LIVE=1`.
 - Desktop smoke: `CYVORA_DESKTOP_SMOKE_OK python=3.13.18 mode=READ-ONLY database=reachable backend=offline gmgn=configured`.
-- Live smoke: `uv run python scripts/gmgn_readonly_smoke.py` printed `GMGN_SMOKE_OK`.
+- Live cycle: `uv run python scripts/radar_cycle.py` printed `RADAR_CYCLE_OK`, `cycle_id=1`, `status=partial`, `weight_used=30`, `requests=13`, `trending=3`, `launches=3`, `analysed=1`, `rate_limit_hits=7`, `error_code=none`, `entry=not_authorized`. The stored row was symbol Rockstar, decision CAUTION, score 60.85, security CAUTION, liquidity observed, smart money observed, whales observed. No API key or database URL was printed.
 
-The live smoke made seven documented reads. All seven returned HTTP 200. Connection state was `reachable`, `success_count=7`, `failure_count=0`. The rank list had 3 rows. Token info, security, and pool parsed. Kline `data.list` had 1 candle after `from` and `to` were sent as milliseconds. New launches were capped to the requested 3. `user/info` was a `wallets` list of length 0, with values removed. No API key, address, or balance was printed.
+The partial status is the free-plan bucket. Holder and trader reads are weight 5, the same as the free capacity. After the first token's core reads, GMGN returned rate-limit errors and the rest of that cycle failed the same way. The cycle now stops sending after the first rate-limit response. That behavior is covered by `test_cycle_stops_sending_after_a_rate_limit`. The stored cycle 1 was made before that stop, so its note lists seven rate-limit failures.
 
 ## Known limitations
 
-- Cloudflare blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live calls depend on Windows `curl.exe`.
-- The Solana trending call omits filters, so GMGN's default `renounced` and `frozen` filters apply.
-- `POST /v1/trenches` with `limit: 3` returned 60 rows. The service keeps the first `limit` rows.
-- The market skill contradicts itself on whether `volume` or `amount` is USD. Both fields are stored and neither is labeled as the dollar total.
-- `GET /v1/user/info` did not identify the existing GMGN embedded wallet. Signed holdings and every `/v1/trade/` path are refused.
-- Holders, traders, search, and address-scoped wallet reads are implemented and mock-tested. They were not part of the live smoke.
-- The terminal still uses placeholders for every page except Dashboard and System Health. Those pages do not show market numbers.
+- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live calls use Windows `curl.exe`.
+- The free plan is 5 tokens of capacity refilled at 5 per second. A weight-5 holder or trader read needs a full bucket. The cycle gives those reads up only while budget remains, and it stops the cycle if the server rate-limits.
+- The local limiter stops after five waits when the clock does not move. A float Unix timestamp cannot represent a sub-ulp sleep, which previously hung the mocked cycle.
+- Smart money is GMGN wallet-tag counts. `/v1/user/smartmoney` is not called. Whale rows are tag counts and holder concentration, not a trade feed.
+- Price impact is not computed. The quote route stays refused. `burn_status` is not treated as locked liquidity. Unknown security is not safe.
+- The liquidity number is scored with fixed bands. Phase 2 did not prove the unit is USD. Rank changes are used by sign only.
+- The terminal repeat checkbox waits the configured interval (default 120 seconds, longer after a partial cycle). Nothing starts a cycle by itself.
+- Pages other than Dashboard, System Health, and the six radar pages are placeholders.
 - NautilusTrader is not a dependency. The stable candidate remains 1.231.0.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
-- WSL2 still cannot start until virtualization is enabled. It is not required.
 
 ## Security
 
-- Live mode names are rejected.
+- Live mode names are rejected. Radar `entry_consideration` is `not_authorized`.
 - `GMGN_PRIVATE_KEY` is not loaded. Logs and errors redact `GMGN_API_KEY` and the database password.
-- `.env` is gitignored. The example file contains the name `GMGN_API_KEY` and the placeholder `CHANGE_ME`.
+- `/radar` requires `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
+- `.env` is gitignored. The example file contains placeholders only.
 
 ## Exact next actions
 
-1. Do not start Phase 3 until the user asks.
-2. Do not add a signing key or call a swap to "finish" wallet binding. That needs a separate decision.
-3. Phase 3, when requested, is Radar and token intelligence. It is not trading.
+1. Do not start Phase 4 until the user asks.
+2. Do not add a signing key or call a swap. Wallet binding is a separate decision.
+3. Phase 4, when requested, is simulation trading infrastructure. It is not live execution.
 
-## Phase 2 checklist
+## Phase 3 checklist
 
 | Done criterion | Result |
 |---|---|
-| Official API access verified | Live HTTP 200 reads. Research doc records the shapes. |
-| Credential requirements verified without collecting a new secret | API key for reads. Signing key for swaps and holdings. The signing key was not collected. |
-| GMGN client | `integrations/gmgn` |
-| Market, trending, token, security, and price reads | Live smoke, with the limits above. |
-| Wallet monitoring where authorized | Account probe only. No wallet is bound. Holdings refused. |
-| Embedded-wallet compatibility | Not bound to this key. Execution not attempted. |
-| Connection monitoring and errors | In-process state on the client. Health shows configuration only. |
-| Mock tests | Unit and security tests. Live test skips by default. |
-| No swaps or transactions | Trade routes refused before HTTP. |
-| Phase 3 not started | No Radar, scoring, history store, or watchlist. |
+| Trending and new-launch discovery | Live cycle: 3 trending, 3 launches. Routes are the Phase 2 rank and trenches reads. |
+| Security, liquidity, indicators | Stored on the analysed token. Rubric in `docs/intelligence/SCORING.md`. |
+| Smart money and whales | Tag counts and holder concentration from the same reads. No copied trades. |
+| Opportunity score and rank | Deterministic weighted score. Entry stays `not_authorized`. |
+| Historical storage | Revision `0002_radar_intelligence` applied. Rows are inserts. |
+| Watchlists | API and terminal can add and deactivate a watch. Removal keeps the row. |
+| Terminal and API read the store | Scanner and the other radar pages show the stored cycle or an empty state. `/radar` is authenticated. |
+| No swaps or transactions | Trade routes refused before HTTP. Intelligence source has no trade path. |
+| Phase 4 not started | NautilusTrader is not installed. No strategy or order package. |

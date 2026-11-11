@@ -11,7 +11,8 @@ Read `PROJECT_STATUS.md` before starting work. Do not begin the next roadmap pha
 
 Boundaries already in the code:
 
-- The PySide6 desktop presents status. Network and database checks stay off the UI thread.
+- The PySide6 desktop presents status and stored radar rows. Network, database, and GMGN calls stay off the UI thread.
+- Radar scores do not authorize an order. Unknown security data is not safe.
 - The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
 - PostgreSQL is the application database. Do not silently substitute SQLite.
 - NautilusTrader is not installed. Do not mix 1.x examples with 2.x code.

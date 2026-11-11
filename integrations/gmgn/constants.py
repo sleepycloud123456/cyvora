@@ -14,7 +14,7 @@ pages' leaky-bucket weights. The free, plus, and pro buckets are ``5/5``,
 from __future__ import annotations
 
 OFFICIAL_BASE_URL = "https://openapi.gmgn.ai"
-USER_AGENT = "cyvora/0.2.0 read-only"
+USER_AGENT = "cyvora/0.3.0 read-only"
 DOCS_VERIFIED_ON = "2026-11-11"
 
 # Documented chains. CYVORA's product chain is Solana; the client still accepts

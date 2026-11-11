@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation and a Phase 2 read-only GMGN client. The desktop shows whether that client is configured. It does not show prices, balances, or orders.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, and a Phase 3 radar that stores scored tokens. The desktop shows stored radar rows after a cycle. It does not show balances or orders, and it does not invent rows when none are stored.
 
 Live trading is not implemented.
 
@@ -13,9 +13,10 @@ Slogan: TRADE BEYOND LIMITS.
 - SQLAlchemy models and the first Alembic revision, applied to local PostgreSQL 17.
 - A PySide6 terminal with branding, navigation, and application, database, backend, and GMGN configuration status.
 - A read-only GMGN client for market and token research. Trade and signing routes are refused.
+- Radar discovery, security, liquidity, indicators, smart-money and whale tag counts, a documented score, rankings, watchlists, and PostgreSQL history.
 - Cursor project rules and `AGENTS.md`.
 
-Pages other than Dashboard and System Health are labeled placeholders. They do not contain sample trades.
+Dashboard, System Health, and the radar pages are implemented. Other pages are labeled placeholders. They do not contain sample trades.
 
 ## Prerequisites
 
@@ -78,7 +79,15 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-PostgreSQL 17 is installed and `0001_application_metadata` is the applied revision. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env` before `uv run alembic upgrade head`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies `0001_application_metadata` and `0002_radar_intelligence`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+
+One stored radar cycle, when the key and the database are both configured:
+
+```powershell
+uv run python scripts/radar_cycle.py
+```
+
+The script prints counts, symbols, and `entry=not_authorized`. It does not print the API key or the database URL. The opt-in test is `CYVORA_RADAR_LIVE=1`.
 
 ## GMGN
 
