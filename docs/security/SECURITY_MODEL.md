@@ -1,6 +1,6 @@
 # Security model
 
-Phase 7 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 8 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
@@ -37,16 +37,16 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 - Default bind is `127.0.0.1:8787`.
 - `0.0.0.0` and other non-loopback hosts fail validation.
 - CORS is not enabled.
-- `/health` is unauthenticated because it exposes only process status.
-- `/radar` and `/trading` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token.
-- The desktop does not send that token. It reads PostgreSQL on the worker threads.
+- `/health` is unauthenticated because it exposes only process status. Worker, cycle, queue, and websocket words were added in Phase 8. There is still no websocket server.
+- `/radar`, `/trading`, `/terminal`, and `/operations` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token. Repeated failures in the process return HTTP 429. `auth_events` stores the result word, not the token.
+- The desktop does not send that token. It reads PostgreSQL on the worker threads and probes loopback health every 15 seconds. It does not start the API.
 - Unexpected exceptions return `{"detail": "Internal server error"}`. The exception string is not logged.
 
 ## Database
 
 Alembic will not connect when the URL is unset. Connection failures return a fixed sentence. The SQLAlchemy engine is created with `NullPool` for the check and is disposed immediately. Echo is left off so statements are not printed.
 
-`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. `0003_trading_infrastructure` creates the paper ledger. `0004_shield_risk_engine` creates the paper risk book. `0005_simulation` creates the simulation tables. None of them inserts a secret or grants remote access.
+`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. `0003_trading_infrastructure` creates the paper ledger. `0004_shield_risk_engine` creates the paper risk book. `0005_simulation` creates the simulation tables. `0006_terminal` creates profiles and local notices. `0007_operations` creates worker, recovery, backup, and authentication rows. None of them inserts a secret or grants remote access. Recovery rows cannot record a wallet read or a flat wallet.
 
 ## Audit
 
@@ -57,7 +57,7 @@ Radar cycle saves and watchlist adds or removals insert `audit_events` with an a
 - No chain execution. Paper mode can store a simulated order only.
 - No automatic credential creation.
 - No public listen address.
-- No cloud deployment.
+- No cloud deployment. The design files under `deploy/` were not applied. Backup dumps and diagnostic files stay in gitignored directories.
 - No spending.
 - A configured database that cannot be reached makes `/health` return HTTP 503. The desktop keeps running and shows `unreachable`.
 

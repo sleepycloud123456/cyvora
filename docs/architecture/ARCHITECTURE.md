@@ -1,6 +1,6 @@
 # Architecture
 
-Phase 7 reads the stored paper book on the terminal pages. A score does not authorize an order. A Shield paper approval is not a chain transaction. The local analyst cannot approve one either.
+Phase 8 runs a local supervisor beside the terminal. A score does not authorize an order. A Shield paper approval is not a chain transaction. The local analyst cannot approve one either. Recovery does not read a wallet.
 
 ## What runs today
 
@@ -28,6 +28,11 @@ CYVORA API (FastAPI, loopback only)
     |-- PUT /terminal/profiles             bearer token, paper profile only
     |-- PUT /terminal/notifications/preferences
     \-- POST /terminal/controls/pause|resume  Shield halt only, no order
+
+CYVORA supervisor (separate process, bounded ticks)
+    |-- recovery of the stored paper book
+    |-- freshness, paper-position count, local notices
+    \-- radar only when --include-radar is set
 ```
 
 The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. Radar pages show the latest stored cycle or an empty state. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
@@ -41,7 +46,8 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `monitoring.health` | Builds a `StatusSnapshot` with application, database, backend, and GMGN configuration state. |
 | `database.connection` | Opens a short-lived SQLAlchemy engine when a URL is configured. |
 | `database.models` | Application metadata, radar history, and the paper ledger. |
-| `database.migrations` | Alembic revisions through `0006_terminal`. |
+| `database.migrations` | Alembic revisions through `0007_operations`. |
+| `operations` | Supervisor, recovery, backup, diagnostics, and local auth limits. |
 | `terminal` | Portfolio, analytics, the local analyst, and notification drafts. |
 | `database.repositories` | Radar history and the paper ledger. |
 | `apps.api` | Factory `create_app`. `/health`, authenticated `/radar`, and authenticated `/trading`. |
@@ -81,6 +87,8 @@ Revision `0005_simulation` adds datasets, bars, signals, universe members, runs,
 
 Revision `0006_terminal` adds paper profiles, notification preferences, and local notifications. Those rows constrain `live_trading_enabled` to false. Preference and notification rows also constrain Telegram delivery to false.
 
+Revision `0007_operations` adds worker, heartbeat, recovery, backup, and authentication rows. Recovery rows constrain wallet reconciliation to `not_authorized` and `wallet_assumed_flat` to false. Worker rows constrain `cloud_deployed` and `live_trading_enabled` to false.
+
 ## Boundaries
 
 1. CYVORA Terminal remains the Windows control surface.
@@ -89,7 +97,7 @@ Revision `0006_terminal` adds paper profiles, notification preferences, and loca
 4. `integrations.gmgn` is the market-data boundary. Radar calls that client. It does not add routes. Radar does not register a strategy.
 5. PostgreSQL remains the system of record.
 
-Signal strategies that trade live, and cloud deployment, are not in the repository. The simulation strategies in `backtesting/` run only inside a paper backtest or the paper broker.
+Signal strategies that trade live are not in the repository. The simulation strategies in `backtesting/` run only inside a paper backtest or the paper broker. Cloud files under `deploy/` are templates. They were not applied.
 
 ## Execution lifecycle
 

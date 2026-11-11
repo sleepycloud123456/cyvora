@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, a Phase 6 simulation backtest, and the Phase 7 terminal pages. The desktop shows stored rows or an explicit empty state. It does not invent rows when none are stored.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, a Phase 6 simulation backtest, the Phase 7 terminal pages, and a Phase 8 local supervisor. The desktop shows stored rows or an explicit empty state. It does not invent rows when none are stored.
 
 Live trading is not implemented.
 
@@ -69,7 +69,22 @@ Health check while the API is running:
 Invoke-RestMethod http://127.0.0.1:8787/health
 ```
 
-The desktop reports the API as offline when that process is not running. It does not start the API for you.
+The desktop reports the API as offline when that process is not running. It probes loopback again every 15 seconds. It does not start the API for you.
+
+One bounded supervisor tick, with no GMGN call:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_supervisor.ps1 -Ticks 1
+```
+
+A local database dump and a redacted diagnostic file:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup_database.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export_diagnostics.ps1
+```
+
+`scripts/register_supervisor_task.ps1` does not register a scheduled task unless you pass `-ConfirmInstall`. The cloud files under `deploy/` are not applied by these commands. See [Operations](docs/operations/OPERATIONS.md).
 
 ## Tests
 
@@ -81,7 +96,7 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0004_shield_risk_engine`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0007_operations`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
 One stored radar cycle, when the key and the database are both configured:
 

@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 7 is the completed CYVORA Terminal. Do not start Phase 8 (long-running workers, service supervision, backups, or cloud readiness), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 7 verified.
+Phase 8 is the local supervisor, recovery, backup, diagnostics, and the undeployed cloud design. Do not start Phase 9 (security review or live-trading readiness), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 8 verified. Do not install a Windows service or register a scheduled task unless the user passes `-ConfirmInstall` themselves.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -49,6 +49,7 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Shield | `shield/` | Paper risk decisions. Approval cannot enable a live order. |
 | Simulation | `backtesting/` | Historical series, cost and liquidity models, the paper broker, backtests, and walk-forward. |
 | Terminal read model | `terminal/` | Portfolio, analytics, local analyst, and notification drafts. No orders. |
+| Operations | `operations/` | Supervisor, recovery, backup, and redacted diagnostics. No cloud deploy. |
 | Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
 The strategy registry is not a signal generator. The simulation strategies in `backtesting/strategies.py` run only inside a paper backtest or the paper broker.
@@ -85,7 +86,9 @@ uv run cyvora-desktop
 - `docs/architecture/ARCHITECTURE.md` — what exists now.
 - `docs/architecture/TECHNICAL_DECISIONS.md` — choices and tradeoffs.
 - `docs/security/SECURITY_MODEL.md` — credentials and fail-closed behavior.
-- `docs/ROADMAP.md` — later phases. Phase 7 has not started.
+- `docs/ROADMAP.md` — later phases. Phase 9 has not started.
+- `docs/operations/OPERATIONS.md` — supervisor, recovery, backup, and diagnostics.
+- `docs/operations/CLOUD_DESIGN.md` — undeployed cloud split.
 - `docs/trading/NAUTILUS_MAPPING.md` — Nautilus 1.231.0 mapping and the offline proof.
 - `docs/trading/SHIELD.md` — paper risk decisions.
 - `docs/trading/SIMULATION.md` — backtests, the paper broker, and the cost models.

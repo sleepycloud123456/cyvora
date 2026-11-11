@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-11-11 — Phase 8
+
+- Added a bounded local supervisor for freshness, stored paper positions, and local notices. A radar tick calls GMGN only when `--include-radar` is set, and then it uses the existing curl transport and rate limiter.
+- Recovery reads the stored Shield book, paper orders, and positions. It does not read a wallet or treat a missing wallet as flat. Inconsistent or unreadable books block new paper API entries.
+- Added a loopback `pg_dump` wrapper and a redacted diagnostic export. Neither prints the database URL. Retention is recorded and does not delete audit rows.
+- `/health` now includes worker, stored-cycle, queue, and websocket words. Authenticated routes limit repeated failures. The desktop probes loopback every 15 seconds and does not start the API.
+- Stored the rows in PostgreSQL revision `0007_operations`. Cloud and Windows task files are templates. Nothing was deployed or registered.
+
 ## 0.7.0 — 2026-11-11 — Phase 7
 
 - Completed the terminal pages that were still placeholders: Portfolio, Analytics, CYVORA Intelligence, Notifications, and Settings. The dashboard reads the stored paper book.

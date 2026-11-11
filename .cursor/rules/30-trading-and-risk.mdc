@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Trading and risk
 
-Phase 7 presents the stored paper book. Shield approves or denies every paper order. A terminal profile, a notification, and the local analyst cannot approve one.
+Phase 8 supervises the stored paper book. Shield approves or denies every paper order. A terminal profile, a notification, the local analyst, and a recovery report cannot approve a live order. An unreadable or inconsistent paper book blocks new paper API entries. A missing wallet read is not a flat wallet.
 
 - CYVORA Shield is the only trade-approval authority. Strategies, the desktop, the backtest, a trading profile, and any analyst output cannot bypass it. `paper_approved` does not enable a live order. No terminal control may enable live trading.
 - The default mode remains `READ_ONLY` or `PAPER`. Paper code must not call a swap or a signer.

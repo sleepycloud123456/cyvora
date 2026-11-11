@@ -44,6 +44,6 @@ Review the diff before accepting it. Check that no `.env`, log, or virtual envir
 - A global change to Cursor settings, extensions, or the model list.
 - Wallet operations and unrestricted terminal permissions.
 
-## Continue after Phase 5
+## Continue after Phase 8
 
-PostgreSQL 17 is installed. The GMGN client is read-only. Radar, the paper ledger, Shield, and simulation reports are stored. Phase 7 reads those rows on the remaining terminal pages. The next engineering task is Phase 8 only after an explicit request. Phase 8 is long-running local operations and a cloud design. It is not a swap, a signer, or a wallet binding experiment.
+PostgreSQL 17 is installed. The GMGN client is read-only. Radar, the paper ledger, Shield, simulation reports, and the terminal pages are stored. Phase 8 adds a local supervisor, recovery, backup, and diagnostics. The next engineering task is Phase 9 only after an explicit request. Phase 9 is a security review and live-trading readiness report. It is not permission to trade, and it is not a cloud deployment.
