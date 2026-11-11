@@ -1,6 +1,6 @@
 # Roadmap
 
-Phase 8 is the current code. Later phases are listed so the boundary stays visible. Do not start one because its heading exists.
+Phase 9 is the current code. Later work stays closed until the user asks. Do not start it because a heading exists.
 
 | Phase | Objective | State |
 |---|---|---|
@@ -12,6 +12,6 @@ Phase 8 is the current code. Later phases are listed so the boundary stays visib
 | 6 | Backtesting and paper trading | Implemented. Simulation only. See `docs/trading/SIMULATION.md`. |
 | 7 | Full CYVORA Terminal | Implemented. Paper pages only. See `docs/terminal/TERMINAL.md`. |
 | 8 | Long-running local operations and a cloud design | Implemented locally. Nothing was deployed. See `docs/operations/OPERATIONS.md` and `docs/operations/CLOUD_DESIGN.md`. |
-| 9 | Security review and live-trading readiness | Not started. Live trading stays off without a separate authorization. |
+| 9 | Security review and live-trading readiness | Implemented as a closed gate. Live trading stays off without a separate authorization. See `docs/security/LIVE_READINESS.md`. |
 
-Phase 8 supervises local paper and read-only ticks, recovers the stored book without reading a wallet, and keeps a cloud design undeployed. A profile and a local analyst cannot approve an order. Phase 9 has not started.
+Phase 9 reviews the controls, records the gaps, and adds a kill switch that cannot authorize a live order. A profile, a local analyst, and a completed checklist cannot approve one.

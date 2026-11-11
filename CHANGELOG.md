@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 — 2026-11-11 — Phase 9
+
+- Reviewed secrets, authentication, injection, logging, the public GitHub repository, and Shield bypass paths. Fixed curl-config quoting, database-URL exposure in settings output, log-path `..`, unauthenticated API docs, an unbounded bearer header, and `pg_dump` taken from `PATH`.
+- Added a closed live-trading gate. A checklist that is marked fully present still leaves `authorized` false. No control can store a live grant.
+- Added an operator kill switch that blocks new operator paper orders, survives restart, and is not cleared by resume or the analyst. It does not sign or submit.
+- Stored the latch in PostgreSQL revision `0008_readiness`. Wrote the security review, the readiness report, and the runbooks. Live trading stays disabled.
+
 ## 0.8.0 — 2026-11-11 — Phase 8
 
 - Added a bounded local supervisor for freshness, stored paper positions, and local notices. A radar tick calls GMGN only when `--include-radar` is set, and then it uses the existing curl transport and rate limiter.

@@ -78,4 +78,4 @@ Docker is still not installed. Do not point this project at a hosted database.
 | pytest-qt | 4.5.0 |
 | ruff | 0.17.4 |
 
-On 2026-11-11 the same environment also contains `cyvora` 0.8.0 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.
+On 2026-11-11 the same environment also contains `cyvora` 0.9.0 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.

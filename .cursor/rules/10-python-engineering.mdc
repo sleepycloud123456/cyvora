@@ -7,7 +7,7 @@ alwaysApply: false
 # Python engineering
 
 - Target Python 3.13 and type public functions.
-- Keep new code in `apps`, `config`, `database`, `domain`, `monitoring`, `integrations`, `intelligence`, `shield`, `trading`, `backtesting`, `terminal`, and `operations`.
+- Keep new code in `apps`, `config`, `database`, `domain`, `monitoring`, `integrations`, `intelligence`, `shield`, `trading`, `backtesting`, `terminal`, `operations`, and `readiness`.
 - Use `Decimal` for authoritative money or token quantities. Do not introduce those values as binary floats.
 - Raise `domain.exceptions.CyvoraError` for expected failures. Do not use a bare `except`.
 - Do not log secrets, database URLs, tokens, or authorization headers.

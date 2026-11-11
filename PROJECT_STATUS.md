@@ -4,11 +4,11 @@ Date: 2026-11-11.
 
 ## Current phase
 
-Phase 8 — long-running local operations and cloud readiness. The definition of done below is met for the local design. Phase 9 has not started.
+Phase 9 — security review and live-trading readiness. The definition of done below is met. Live trading is not authorized.
 
 ## Current milestone
 
-A bounded supervisor can recover the stored paper book, record worker heartbeats, write a redacted diagnostic file, and dump a loopback database without printing the URL. The desktop probes loopback again after the API drops. No cloud resource was created, and no Windows service or scheduled task was registered.
+The live-trading gate stays closed. A checklist marked fully present still returns `authorized: false`. The operator kill switch can block new operator paper orders and was verified engaged, then released, on the local database. No wallet was bound and no transaction was signed.
 
 ## Completed work
 
@@ -20,35 +20,37 @@ A bounded supervisor can recover the stored paper book, record worker heartbeats
 - Phase 6 simulation package, merged on `main` at `8de3e7e`.
 - Phase 7 terminal pages, revision `0006_terminal`, authenticated `/terminal` routes, and the local stored-evidence analyst.
 - Phase 8 supervisor, recovery, backup, diagnostics, local auth limits, desktop reconnect, and an undeployed cloud design. Revision `0007_operations`.
+- Phase 9 security review, closed live-trading gate, kill switch, and runbooks. Revision `0008_readiness`.
 
 ## In progress
 
-Nothing inside Phase 8.
+Nothing inside Phase 9.
 
 ## Blockers
 
-None for the local operations boundary. Live trading is still disabled. A paper approval, a profile, an analyst finding, and a completed recovery do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
+None for the readiness boundary. Live trading is still disabled. The report, a paper approval, a profile, an analyst finding, and a released kill switch do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
 
-Recorded on 2026-11-11 after the Phase 8 run:
+Recorded on 2026-11-11 after the Phase 9 run:
 
 - `uv run ruff check .` passed.
 - `uv run ruff format --check .` passed.
 - `uv run mypy` passed.
-- `uv run pytest` — 139 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. One earlier full run reported a transient database `OperationalError` on the connectivity test; the database was reachable immediately afterward, and the repeated full run passed.
+- `uv run pytest` — 149 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
 - `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database reachable, backend offline, and GMGN configured.
-- Alembic upgrade applied `0007_operations`. `uv run alembic current` is `0007_operations (head)`.
-- `uv run python -m operations.startup --ticks 1` printed `CYVORA_SUPERVISOR_OK` with radar skipped, freshness stale, portfolio and notices ok, entries not blocked, and wallet `not_authorized`.
-- `uv run python -m operations.backup` wrote a local `pg_dump` file. The URL was not printed.
-- `uv run python -m operations.diagnostics` wrote a redacted JSON file. The configured secrets were not in it.
-- `scripts/register_supervisor_task.ps1` printed `CYVORA_SERVICE_NOT_INSTALLED`.
+- Alembic upgrade applied `0008_readiness`. `uv run alembic current` is `0008_readiness (head)`.
+- The local kill-switch row was engaged and then released. A wrong confirmation was refused. The stored latch was left released. `live_trading_enabled` stayed false and `authorization_state` stayed `not_authorized`.
+- `uv run python -m readiness` printed `ready_for_live: false`, `kill_switch: released`, and `live_trading_enabled=false`.
+- `uv run --with pip-audit pip-audit` reported `fsspec` 2026.2.0 (PYSEC-2026-4217), pinned by NautilusTrader 1.231.0. CYVORA does not call the affected API. The Nautilus pin was not changed.
 
 No API key or database URL is printed.
 
 ## Known limitations
 
 - Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
+- `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. The reference-filesystem advisory is not patched inside that pin. CYVORA does not open a reference filesystem.
+- The GitHub repository is public. `.env` is not in its history. Changing visibility is an operator decision.
 - Nautilus 1.231.0 on this wheel has fixed precision 9. A wider price stays in CYVORA `Decimal` and is not rounded into a Nautilus price.
 - A `CurrencyPair` is a synthetic spot instrument. It is not a Solana swap. `OrderSubmitted` inside the Nautilus proof is not a signed transaction, and that proof is not the CYVORA backtest. The CYVORA backtest goes through Shield.
 - GMGN candle volume is not base size. A single liquidity figure is not a reserve pair. Those bars do not fill. Reserves from a later radar snapshot are not copied onto an earlier candle.
@@ -58,7 +60,7 @@ No API key or database URL is printed.
 - Sharpe and Sortino are per observation and are omitted below 30 return observations. They are not annualized. The terminal uses the same rule on stored equity changes.
 - Walk-forward windows each start from the same paper equity. They are not one continuous portfolio. Selected parameters are not deployed.
 - The simulation strategies are momentum, breakout, and stored-signal follow. They do not read a wallet.
-- Backtests use an isolated ledger. They do not change the operator paper book. The modeled paper route does. That route stays blocked while recovery says the book is inconsistent or unreadable.
+- Backtests use an isolated ledger. They do not change the operator paper book and they do not consult the kill switch. The modeled paper route does. That route stays blocked while recovery says the book is inconsistent or unreadable, and while the kill switch is engaged or unreadable.
 - No Solana RPC, account inspection, or chain confirmation client is included. Recovery does not assume the wallet is flat.
 - `2.0.0` final was not on PyPI on 2026-11-11. The `2.0.0rc*` builds are not installed.
 - Wallet SOL and USD value are not available. Verified equity is the last Shield baseline.
@@ -71,39 +73,46 @@ No API key or database URL is printed.
 - There is no websocket server and no external queue. Health says so.
 - Retention is a plan. Audit events and backtests are not deleted.
 - The cloud Dockerfile and compose file were not built or started. The scheduled-task script was not run with `-ConfirmInstall`.
+- `pg_dump` is accepted only from a Program Files PostgreSQL install. A copy earlier on `PATH` is ignored.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
 
 ## Security
 
-- Live mode names are rejected. A `paper_approved` decision does not enable them. The terminal has no control that can.
+- Live mode names are rejected. A `paper_approved` decision does not enable them. The readiness report cannot enable them. The terminal has no control that can.
 - `GMGN_PRIVATE_KEY` is not loaded. The paper path does not call `GMGNExecutionGateway` or a live Nautilus execution client.
-- `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only. Repeated authentication failures return HTTP 429. Auth rows do not store the token.
-- `.env` is gitignored. The example file contains placeholders only. Container and task templates do not contain a database URL or a token.
+- `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only. `/docs` and `/openapi.json` are disabled. Repeated authentication failures return HTTP 429. A bearer value longer than 4096 characters is rejected before it is hashed. Auth rows do not store the token.
+- The kill switch is a database row. Resume and the analyst cannot release it. It was left released after the verification above.
+- `.env` is gitignored and has no commit. The example file contains placeholders only. Container and task templates do not contain a database URL or a token.
+- `repr(Settings)` and `model_dump` do not include the database password. `get_settings` does not re-raise the pydantic input value.
 - Simulation rows constrain `live_trading_enabled` to false. Run rows constrain `parameters_deployed` to false.
 - Terminal profile, preference, and notification rows constrain live trading to false. Telegram delivery is constrained to false.
+- Readiness rows constrain live trading to false and authorization to `not_authorized`.
 - Analyst findings set `authorizes_order` false. No external model is called.
 - Recovery rows constrain wallet reconciliation to `not_authorized` and `wallet_assumed_flat` to false. Worker rows constrain `cloud_deployed` to false.
 
 ## Exact next actions
 
-1. Do not start Phase 9 until the user asks.
+1. Do not enable live trading. The decisions required before that can be discussed are listed in `docs/security/LIVE_READINESS.md`.
 2. Do not add a signing key, an RPC provider, a swap, or a Telegram bot token. Wallet binding is a separate decision.
 3. Do not register the supervisor task or deploy the cloud design unless the user authorizes that specific step.
-4. Phase 9, when requested, is a security and live-trading readiness review. It is not permission to trade live.
+4. Decide whether the public GitHub repository should stay public before any live operational notes are added.
 
-## Phase 8 checklist
+## Phase 9 checklist
 
 | Done criterion | Result |
 |---|---|
-| Background worker lifecycle | One supervisor run records radar, freshness, paper-position, and notice ticks. Radar stays offline unless `--include-radar`. |
-| Service supervision | Heartbeats, a restart limit, and failed-tick text that omits the exception. No Windows service was installed. |
-| Startup management | The API stops leftover `RUNNING` strategies and writes a recovery report. `scripts/run_supervisor.ps1` defaults to one tick. |
-| Recovery | Stored Shield presence, non-terminal paper orders, and position-versus-fill conflicts. Wallet not read and not assumed flat. New paper API entries block until the book is consistent. |
-| Database backup | `pg_dump` for loopback only. Password stays off the command line. No scheduled backup was installed. |
-| Health monitoring | `/health` adds worker, stored-cycle, queue, and websocket words. No new market-data call. |
-| Local authentication | Existing bearer token, an in-process failure limit, and `auth_events` without the token. |
-| Desktop reconnect | A 15-second loopback probe. The window does not start the API. |
-| Exportable diagnostics | Redacted JSON under `diagnostics/`. The environment is not included. |
-| Cloud design | `docs/operations/CLOUD_DESIGN.md` and `deploy/` templates. Nothing was deployed. |
-| Paper only | Live flags stay false. The supervisor does not submit an order. |
-| Phase 9 not started | No live-readiness report and no signer. |
+| Wallet compatibility | Recorded absent. No wallet client was added. |
+| Execution permissions | Live mode names stay rejected. The gate has no granted state. |
+| Risk enforcement | Shield still decides paper orders. A paper approval is not a live order. |
+| Transaction simulation | Paper simulator only. No chain simulation was added. |
+| Transaction confirmation | A paper `CONFIRMED` state stays a simulator word. |
+| Reconciliation | Paper book only. Wallet reconciliation stays `not_authorized`. |
+| Duplicate prevention | A repeated paper idempotency key returns the stored order while the kill switch is engaged. |
+| Emergency controls | Kill switch engages, blocks a new operator paper order, and releases only with the confirmation word. |
+| Failure recovery | Existing paper recovery remains. An unreadable kill-switch row blocks new operator paper orders. |
+| API disconnection | GMGN transport behavior is unchanged. No live order is left in flight. |
+| Balance verification | Recorded absent. No balance was read. |
+| Spending limits | Paper Shield limits remain. No chain spending limit was added. |
+| Audit trails | Readiness events store the action and not the confirmation word. |
+| Security review | `docs/security/SECURITY_REVIEW.md`. Fixed findings are in the code. Open findings are listed there. |
+| Live trading | Disabled. `ready_for_live` is false. |
