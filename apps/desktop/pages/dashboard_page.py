@@ -4,12 +4,30 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
+from apps.desktop.components.disclosure import DetailDisclosure
+from apps.desktop.components.hologram import Hologram
 from apps.desktop.components.status_card import StatusCard
 from domain.status import StatusSnapshot
 from domain.terminal import PortfolioView
 from terminal.present import money
+
+_PRIMARY = (
+    "verified_equity",
+    "open_positions",
+    "unrealized",
+    "daily_pnl",
+    "total_pnl",
+    "risk_status",
+)
 
 
 class DashboardPage(QWidget):
@@ -18,44 +36,67 @@ class DashboardPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
-        layout.setSpacing(16)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(0)
         self.notice = QLabel(
             "Paper figures come from the stored book. Wallet SOL and USD value "
             "are not available. A Shield figure is not a live balance."
         )
         self.notice.setObjectName("Notice")
         self.notice.setWordWrap(True)
-        row = QHBoxLayout()
-        row.setSpacing(12)
         self.application_card = StatusCard("Application")
         self.database_card = StatusCard("Database")
         self.backend_card = StatusCard("Backend")
         self.gmgn_card = StatusCard("GMGN")
-        row.addWidget(self.application_card)
-        row.addWidget(self.database_card)
-        row.addWidget(self.backend_card)
-        row.addWidget(self.gmgn_card)
         self._metrics = {name: StatusCard(title) for name, title in _METRIC_TITLES}
-        grid = QGridLayout()
-        grid.setSpacing(12)
-        for index, card in enumerate(self._metrics.values()):
-            grid.addWidget(card, index // 4, index % 4)
+        self.hologram = Hologram()
         self.recent = QLabel("Recent paper orders have not been loaded.")
-        self.recent.setObjectName("Notice")
+        self.recent.setObjectName("EmptyState")
         self.recent.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.notice)
+
+        hero = QHBoxLayout()
+        hero.setSpacing(36)
+        figures = QGridLayout()
+        figures.setHorizontalSpacing(16)
+        figures.setVerticalSpacing(16)
+        for index, name in enumerate(_PRIMARY):
+            figures.addWidget(self._metrics[name], index // 2, index % 2)
+        hero.addLayout(figures, stretch=1)
+        hero.addWidget(self.hologram, stretch=0)
+
+        status = QHBoxLayout()
+        status.setSpacing(16)
+        status.addWidget(self.database_card)
+        status.addWidget(self.backend_card)
+        status.addWidget(self.gmgn_card)
+        status.addWidget(self.application_card)
+
+        secondary = QGridLayout()
+        secondary.setHorizontalSpacing(16)
+        secondary.setVerticalSpacing(16)
+        hidden = [name for name, _title in _METRIC_TITLES if name not in _PRIMARY]
+        for index, name in enumerate(hidden):
+            secondary.addWidget(self._metrics[name], index // 3, index % 3)
+        secondary_host = QWidget()
+        secondary_host.setLayout(secondary)
+        self.details.add(secondary_host)
+
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(0, 12, 0, 0)
+        body_layout.setSpacing(28)
+        body_layout.addLayout(hero)
+        body_layout.addLayout(status)
+        body_layout.addWidget(self.recent)
+        body_layout.addWidget(self.details)
+        body_layout.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        body = QWidget()
-        body_layout = QVBoxLayout(body)
-        body_layout.addLayout(row)
-        body_layout.addLayout(grid)
-        body_layout.addWidget(self.recent)
-        body_layout.addStretch(1)
         scroll.setWidget(body)
-        layout.addWidget(self.notice)
-        layout.addWidget(scroll, stretch=1)
+        layout.addWidget(scroll)
         self._show_metric_message("Not checked", "The paper book has not been read.")
 
     def set_checking(self) -> None:

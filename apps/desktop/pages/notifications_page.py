@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
+from apps.desktop.components.disclosure import DetailDisclosure
 from domain.terminal import UNSOURCED_NOTIFICATIONS, NotificationRecord
 
 _COLUMNS = ("Evidence", "Category", "Subject", "Detail", "Desktop", "Telegram")
@@ -15,15 +16,19 @@ class NotificationsPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(16)
         self.notice = QLabel("Terminal storage has not been read.")
-        self.notice.setObjectName("Notice")
+        self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
         self.table = QTableWidget(0, len(_COLUMNS))
         self.table.setHorizontalHeaderLabels(list(_COLUMNS))
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(40)
+        self.table.setShowGrid(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
         missing = ", ".join(sorted(item.value for item in UNSOURCED_NOTIFICATIONS))
         self.footer = QLabel(
             "Smart-money accumulation and application-stopped have no stored source, "
@@ -32,23 +37,37 @@ class NotificationsPage(QWidget):
         )
         self.footer.setObjectName("Notice")
         self.footer.setWordWrap(True)
+        self.context = QLabel("")
+        self.context.setObjectName("Notice")
+        self.context.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.context)
+        self.details.add(self.footer)
         layout.addWidget(self.notice)
         layout.addWidget(self.table, stretch=1)
-        layout.addWidget(self.footer)
+        layout.addWidget(self.details)
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+        self.notice.setVisible(True)
+        self.context.setText("")
         self.table.setRowCount(0)
+        self.table.setVisible(False)
 
     def show_notifications(self, rows: tuple[NotificationRecord, ...]) -> None:
         if not rows:
             self.notice.setText("No stored notification matches the current book.")
+            self.notice.setVisible(True)
+            self.context.setText("")
             self.table.setRowCount(0)
+            self.table.setVisible(False)
             return
-        self.notice.setText(
+        self.notice.setVisible(False)
+        self.context.setText(
             "Local notices derived from stored rows. A withheld row fell in the quiet period. "
             "Nothing was sent to Telegram."
         )
+        self.table.setVisible(True)
         self.table.setRowCount(len(rows))
         for index, row in enumerate(rows):
             delivery = "withheld during quiet period" if row.withheld else "shown"

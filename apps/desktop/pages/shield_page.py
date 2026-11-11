@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from apps.desktop.components.disclosure import DetailDisclosure
 from domain.shield import ShieldNotice, ShieldSnapshot
 from intelligence.numbers import format_decimal
 
@@ -14,28 +15,49 @@ class ShieldPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(16)
         self.notice = QLabel()
-        self.notice.setObjectName("Notice")
+        self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
+        self.headline = QLabel("")
+        self.headline.setObjectName("Headline")
+        self.headline.setWordWrap(True)
         self.body = QLabel()
         self.body.setObjectName("Notice")
         self.body.setWordWrap(True)
+        self.aside = QLabel(
+            "Stored paper risk records. These are not wallet balances, "
+            "and a paper approval cannot submit a live order. "
+            "A planned stop is not a guaranteed exit."
+        )
+        self.aside.setObjectName("Notice")
+        self.aside.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.aside)
+        self.details.add(self.body)
         layout.addWidget(self.notice)
-        layout.addWidget(self.body)
+        layout.addWidget(self.headline)
+        layout.addWidget(self.details)
         layout.addStretch(1)
         self.show_message("Shield storage has not been read.")
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+        self.notice.setVisible(True)
+        self.headline.setText("")
+        self.headline.setVisible(False)
         self.body.setText("")
+        self.details.setVisible(False)
 
     def show_snapshot(self, snapshot: ShieldSnapshot, notices: tuple[ShieldNotice, ...]) -> None:
-        self.notice.setText(
-            "Stored paper risk records. These are not wallet balances, "
-            "and a paper approval cannot submit a live order."
-        )
-        self.body.setText(_lines(snapshot, notices))
+        text = _lines(snapshot, notices)
+        lines = text.splitlines()
+        self.notice.setVisible(False)
+        self.headline.setText("\n".join(lines[:4]))
+        self.headline.setVisible(True)
+        self.body.setText(text)
+        self.details.setVisible(True)
 
 
 def _lines(snapshot: ShieldSnapshot, notices: tuple[ShieldNotice, ...]) -> str:

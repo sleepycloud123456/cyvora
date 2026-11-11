@@ -1,146 +1,208 @@
+/* Surface #000000. Accent #C084FC. Deep accent #A855F7. */
+
 QWidget {
-    background-color: #070B14;
-    color: #E6F1F5;
-    font-family: "Segoe UI";
+    background-color: #000000;
+    color: #F4F1F8;
+    font-family: "Segoe UI", "DejaVu Sans", sans-serif;
     font-size: 13px;
 }
 
 #Sidebar {
-    background-color: #0B1220;
-    border-right: 1px solid #1E3A4C;
+    background-color: #000000;
+    border-right: 1px solid rgba(168, 85, 247, 0.28);
 }
 
 #Content {
-    background-color: #070B14;
+    background-color: #000000;
 }
 
-#BrandTitle {
-    font-size: 22px;
-    font-weight: 700;
-    color: #22D3EE;
+#BrandMark {
+    background: transparent;
 }
 
 #Slogan {
-    color: #2DD4BF;
+    color: #8E86A3;
     font-size: 11px;
+    letter-spacing: 1.4px;
 }
 
 #ModeBadge {
-    background-color: #12343A;
-    color: #2DD4BF;
-    border: 1px solid #1E6F78;
-    border-radius: 10px;
-    padding: 8px 10px;
+    background-color: transparent;
+    color: #E9D5FF;
+    border: 1px solid rgba(192, 132, 252, 0.75);
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 11px;
     font-weight: 600;
 }
 
-#LockNote {
-    color: #8AA0B2;
-    font-size: 12px;
-}
-
-#Navigation {
+#Headline {
+    color: #E9D5FF;
+    font-size: 16px;
+    font-weight: 600;
     background: transparent;
-    border: none;
-    outline: none;
-}
-
-#Navigation::item {
-    padding: 8px 10px;
-    margin: 1px 0;
-    border-radius: 8px;
-    color: #C5D5E0;
-}
-
-#Navigation::item:selected {
-    background: #12343A;
-    color: #22D3EE;
-}
-
-#Navigation::item:hover {
-    background: #132033;
 }
 
 #PageTitle {
-    font-size: 24px;
-    font-weight: 650;
-    color: #E6F1F5;
+    font-size: 28px;
+    font-weight: 560;
+    color: #F4F1F8;
+    background: transparent;
 }
 
-#Notice {
-    color: #8AA0B2;
+#Notice, #EmptyState {
+    color: #B7AEC4;
     font-size: 13px;
+    background: transparent;
+}
+
+#LockNote {
+    color: #B7AEC4;
+    font-size: 13px;
+    background: transparent;
+}
+
+#DetailToggle {
+    background: transparent;
+    color: #C084FC;
+    border: none;
+    padding: 2px 0;
+    font-size: 12px;
+}
+
+#DetailToggle:hover {
+    color: #E9D5FF;
+}
+
+#Hologram {
+    background-color: #000000;
+    border: none;
 }
 
 #StatusCard {
-    background-color: #0E1626;
-    border: 1px solid #1E3A4C;
-    border-radius: 12px;
+    background-color: #000000;
+    border: 1px solid rgba(168, 85, 247, 0.38);
+    border-radius: 16px;
 }
 
 #CardTitle {
-    color: #8AA0B2;
-    font-size: 12px;
+    color: #B7AEC4;
+    font-size: 11px;
+    background: transparent;
 }
 
 #StateValue {
-    color: #22D3EE;
-    font-size: 18px;
-    font-weight: 650;
+    color: #E9D5FF;
+    font-size: 22px;
+    font-weight: 600;
+    background: transparent;
 }
 
 #CardDetail {
-    color: #C5D5E0;
+    color: #B7AEC4;
     font-size: 12px;
+    background: transparent;
 }
 
 QTableWidget {
-    background-color: #0E1626;
-    alternate-background-color: #101A2C;
-    color: #E6F1F5;
-    gridline-color: #1E3A4C;
-    selection-background-color: #12343A;
-    selection-color: #22D3EE;
-    border: 1px solid #1E3A4C;
+    background-color: #000000;
+    alternate-background-color: #0A0A0C;
+    color: #F4F1F8;
+    gridline-color: #16141A;
+    selection-background-color: #1A1024;
+    selection-color: #E9D5FF;
+    border: 1px solid rgba(168, 85, 247, 0.28);
+    border-radius: 12px;
 }
 
 QHeaderView::section {
-    background-color: #0B1220;
-    color: #8AA0B2;
+    background-color: #000000;
+    color: #B7AEC4;
     border: none;
-    padding: 6px;
+    border-bottom: 1px solid rgba(168, 85, 247, 0.35);
+    padding: 10px 8px;
+    font-size: 11px;
 }
 
-QLineEdit, QComboBox {
-    background-color: #0E1626;
-    color: #E6F1F5;
-    border: 1px solid #1E3A4C;
-    border-radius: 8px;
-    padding: 6px 8px;
+QLineEdit, QComboBox, QSpinBox {
+    background-color: #000000;
+    color: #F4F1F8;
+    border: 1px solid rgba(168, 85, 247, 0.32);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
+    border: 1px solid #C084FC;
 }
 
 QPushButton#PrimaryButton, QPushButton#SecondaryButton {
-    background-color: #12343A;
-    color: #22D3EE;
-    border: 1px solid #1E6F78;
-    border-radius: 8px;
-    padding: 8px 12px;
+    background-color: transparent;
+    color: #E9D5FF;
+    border: 1px solid rgba(192, 132, 252, 0.72);
+    border-radius: 10px;
+    padding: 8px 14px;
 }
 
-QCheckBox {
-    color: #C5D5E0;
+QPushButton#PrimaryButton:hover, QPushButton#SecondaryButton:hover {
+    background-color: rgba(168, 85, 247, 0.16);
 }
 
-QTextEdit, QPlainTextEdit, QScrollArea, QSpinBox {
-    background-color: #0E1626;
-    color: #E6F1F5;
-    border: 1px solid #1E3A4C;
+QPushButton#PrimaryButton:focus, QPushButton#SecondaryButton:focus {
+    border: 1px solid #E9D5FF;
 }
 
 QPushButton#DangerButton {
-    background-color: #3F1D24;
+    background-color: transparent;
     color: #F87171;
-    border: 1px solid #7F1D1D;
-    border-radius: 8px;
-    padding: 8px 12px;
+    border: 1px solid rgba(248, 113, 113, 0.7);
+    border-radius: 10px;
+    padding: 8px 14px;
+}
+
+QCheckBox {
+    color: #B7AEC4;
+    background: transparent;
+    spacing: 8px;
+}
+
+QTextEdit, QPlainTextEdit, QScrollArea {
+    background-color: #000000;
+    color: #F4F1F8;
+    border: none;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 4px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: rgba(168, 85, 247, 0.45);
+    border-radius: 4px;
+    min-height: 28px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: transparent;
+    height: 0;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+}
+
+QScrollBar::handle:horizontal {
+    background: rgba(168, 85, 247, 0.45);
+    border-radius: 4px;
+}
+
+QToolTip {
+    background-color: #0A0A0C;
+    color: #F4F1F8;
+    border: 1px solid rgba(192, 132, 252, 0.65);
+    padding: 6px 8px;
 }

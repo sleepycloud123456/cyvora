@@ -33,6 +33,7 @@ class SettingsPage(QWidget):
     resume_requested = Signal()
     kill_engage_requested = Signal()
     kill_release_requested = Signal()
+    motion_toggled = Signal(bool)
 
     def __init__(self) -> None:
         super().__init__()
@@ -49,6 +50,12 @@ class SettingsPage(QWidget):
         )
         self.live_lock.setObjectName("LockNote")
         self.live_lock.setWordWrap(True)
+        self.motion = QCheckBox("Animate the terminal")
+        self.motion.setToolTip(
+            "Session only. CYVORA_UI_ANIMATIONS in the environment sets the startup value. "
+            "This does not enable live trading."
+        )
+        self.motion.toggled.connect(self.motion_toggled.emit)
         self.mode = QLabel("Mode has not been read.")
         self.mode.setObjectName("Notice")
         self.mode.setWordWrap(True)
@@ -116,6 +123,7 @@ class SettingsPage(QWidget):
         profile_buttons.addWidget(self.activate)
         layout.addWidget(self.notice)
         layout.addWidget(self.live_lock)
+        layout.addWidget(self.motion)
         layout.addWidget(self.mode)
         layout.addLayout(profile_buttons)
         layout.addWidget(self.profile_id)
@@ -139,6 +147,11 @@ class SettingsPage(QWidget):
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+
+    def set_motion(self, enabled: bool) -> None:
+        self.motion.blockSignals(True)
+        self.motion.setChecked(enabled)
+        self.motion.blockSignals(False)
 
     def show_snapshot(self, snapshot: TerminalSnapshot) -> None:
         settings = snapshot.settings
