@@ -2,6 +2,13 @@
 
 from database.models.application import ApplicationMetadata
 from database.models.base import Base
+from database.models.operations import (
+    AuthEventRow,
+    OperationBackup,
+    OperationHeartbeat,
+    OperationRecovery,
+    OperationWorker,
+)
 from database.models.radar import (
     AuditEvent,
     IndicatorSignal,
@@ -46,8 +53,13 @@ from database.models.trading import (
 __all__ = [
     "ApplicationMetadata",
     "AuditEvent",
+    "AuthEventRow",
     "Base",
     "IndicatorSignal",
+    "OperationBackup",
+    "OperationHeartbeat",
+    "OperationRecovery",
+    "OperationWorker",
     "LiquiditySnapshot",
     "RadarCycle",
     "SecurityAssessmentRow",

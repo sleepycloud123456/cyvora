@@ -29,6 +29,10 @@ class HealthResponse(BaseModel):
     database: ComponentStatusModel
     backend: ComponentStatusModel
     gmgn: ComponentStatusModel
+    workers: ComponentStatusModel
+    market_data: ComponentStatusModel
+    queue: ComponentStatusModel
+    websocket: ComponentStatusModel
 
     @classmethod
     def from_snapshot(cls, snapshot: StatusSnapshot) -> HealthResponse:
@@ -44,4 +48,8 @@ class HealthResponse(BaseModel):
             database=ComponentStatusModel.from_status(snapshot.database),
             backend=ComponentStatusModel.from_status(snapshot.backend),
             gmgn=ComponentStatusModel.from_status(snapshot.gmgn),
+            workers=ComponentStatusModel.from_status(snapshot.workers),
+            market_data=ComponentStatusModel.from_status(snapshot.market_data),
+            queue=ComponentStatusModel.from_status(snapshot.queue),
+            websocket=ComponentStatusModel.from_status(snapshot.websocket),
         )

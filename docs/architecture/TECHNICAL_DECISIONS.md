@@ -113,3 +113,15 @@ The Nautilus `BacktestEngine` cannot call Shield, and its recorded `order.slippa
 The fee is an explicit schedule. A missing schedule is not a zero fee. A decision can be priced only by an observation inside its delay window. The strategy cannot see a later bar.
 
 Walk-forward chooses parameters on the train window and stores them with `parameters_deployed = false`. Nothing copies those parameters into a running strategy. The formulas and the limits are in `docs/trading/SIMULATION.md`.
+
+## The supervisor stays a local process
+
+Date: 2026-11-11.
+
+Phase 8 adds `operations/` instead of the empty `services/` and `cloud/` packages in the master tree. The API, the desktop, and `cyvora-supervisor` call that package. A second trading implementation was not added.
+
+The supervisor defaults to one tick and does not call GMGN. `--include-radar` uses the existing cycle. Recovery compares stored paper fills with stored positions and blocks new API paper entries when they disagree, when an order is still non-terminal, or when the database cannot be read. It does not mark a missing wallet as flat, and it does not change a position.
+
+`pg_dump` receives the password only through `PGPASSWORD` in a narrow child environment. Diagnostic JSON goes through `monitoring.redaction`. The desktop reconnects by polling loopback. It does not launch the API.
+
+`deploy/cloud/` and the Windows task template are design files. Docker was not run, and the scheduled task was not registered. Settings still reject a non-local environment and a non-loopback bind, so the design cannot be turned on by a compose variable. See `docs/operations/CLOUD_DESIGN.md`.

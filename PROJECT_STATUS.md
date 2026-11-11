@@ -4,11 +4,11 @@ Date: 2026-11-11.
 
 ## Current phase
 
-Phase 7 — complete CYVORA Terminal. The definition of done for the pages below is met. Phase 8 has not started.
+Phase 8 — long-running local operations and cloud readiness. The definition of done below is met for the local design. Phase 9 has not started.
 
 ## Current milestone
 
-Every sidebar page reads stored radar, paper, Shield, or simulation rows, or it says the row is missing. Portfolio math does not turn a missing mark into zero. The local analyst cannot authorize an order. No control can enable live trading.
+A bounded supervisor can recover the stored paper book, record worker heartbeats, write a redacted diagnostic file, and dump a loopback database without printing the URL. The desktop probes loopback again after the API drops. No cloud resource was created, and no Windows service or scheduled task was registered.
 
 ## Completed work
 
@@ -19,31 +19,36 @@ Every sidebar page reads stored radar, paper, Shield, or simulation rows, or it 
 - Phase 5 Shield engine, merged on `main` at `b7cfd07`.
 - Phase 6 simulation package, merged on `main` at `8de3e7e`.
 - Phase 7 terminal pages, revision `0006_terminal`, authenticated `/terminal` routes, and the local stored-evidence analyst.
+- Phase 8 supervisor, recovery, backup, diagnostics, local auth limits, desktop reconnect, and an undeployed cloud design. Revision `0007_operations`.
 
 ## In progress
 
-Nothing inside Phase 7.
+Nothing inside Phase 8.
 
 ## Blockers
 
-None for the terminal boundary. Live trading is still disabled. A paper approval, a profile, and an analyst finding do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured.
+None for the local operations boundary. Live trading is still disabled. A paper approval, a profile, an analyst finding, and a completed recovery do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
 
-Recorded on 2026-11-11 after the Phase 7 run:
+Recorded on 2026-11-11 after the Phase 8 run:
 
 - `uv run ruff check .` passed.
 - `uv run ruff format --check .` passed.
 - `uv run mypy` passed.
-- `uv run pytest` — 125 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
-- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database reachable and backend offline.
-- Alembic upgrade applied `0006_terminal`. `uv run alembic current` is `0006_terminal (head)`.
+- `uv run pytest` — 139 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. One earlier full run reported a transient database `OperationalError` on the connectivity test; the database was reachable immediately afterward, and the repeated full run passed.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database reachable, backend offline, and GMGN configured.
+- Alembic upgrade applied `0007_operations`. `uv run alembic current` is `0007_operations (head)`.
+- `uv run python -m operations.startup --ticks 1` printed `CYVORA_SUPERVISOR_OK` with radar skipped, freshness stale, portfolio and notices ok, entries not blocked, and wallet `not_authorized`.
+- `uv run python -m operations.backup` wrote a local `pg_dump` file. The URL was not printed.
+- `uv run python -m operations.diagnostics` wrote a redacted JSON file. The configured secrets were not in it.
+- `scripts/register_supervisor_task.ps1` printed `CYVORA_SERVICE_NOT_INSTALLED`.
 
 No API key or database URL is printed.
 
 ## Known limitations
 
-- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged.
+- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
 - Nautilus 1.231.0 on this wheel has fixed precision 9. A wider price stays in CYVORA `Decimal` and is not rounded into a Nautilus price.
 - A `CurrencyPair` is a synthetic spot instrument. It is not a Solana swap. `OrderSubmitted` inside the Nautilus proof is not a signed transaction, and that proof is not the CYVORA backtest. The CYVORA backtest goes through Shield.
 - GMGN candle volume is not base size. A single liquidity figure is not a reserve pair. Those bars do not fill. Reserves from a later radar snapshot are not copied onto an earlier candle.
@@ -53,8 +58,8 @@ No API key or database URL is printed.
 - Sharpe and Sortino are per observation and are omitted below 30 return observations. They are not annualized. The terminal uses the same rule on stored equity changes.
 - Walk-forward windows each start from the same paper equity. They are not one continuous portfolio. Selected parameters are not deployed.
 - The simulation strategies are momentum, breakout, and stored-signal follow. They do not read a wallet.
-- Backtests use an isolated ledger. They do not change the operator paper book. The modeled paper route does.
-- No Solana RPC, account inspection, or chain confirmation client is included.
+- Backtests use an isolated ledger. They do not change the operator paper book. The modeled paper route does. That route stays blocked while recovery says the book is inconsistent or unreadable.
+- No Solana RPC, account inspection, or chain confirmation client is included. Recovery does not assume the wallet is flat.
 - `2.0.0` final was not on PyPI on 2026-11-11. The `2.0.0rc*` builds are not installed.
 - Wallet SOL and USD value are not available. Verified equity is the last Shield baseline.
 - A missing open-position mark is not treated as zero. Mixed quotes are not summed.
@@ -63,40 +68,42 @@ No API key or database URL is printed.
 - Entry and exit markers are not drawn on candles. Buy and sell pressure is not a stored series. Liquidity history is stored and is not a separate chart.
 - A profile signal threshold is recorded and is not applied to the score or to Shield.
 - Telegram delivery is off. No bot token is loaded.
-- No background worker supervisor is running. That belongs to Phase 8.
+- There is no websocket server and no external queue. Health says so.
+- Retention is a plan. Audit events and backtests are not deleted.
+- The cloud Dockerfile and compose file were not built or started. The scheduled-task script was not run with `-ConfirmInstall`.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
 
 ## Security
 
 - Live mode names are rejected. A `paper_approved` decision does not enable them. The terminal has no control that can.
 - `GMGN_PRIVATE_KEY` is not loaded. The paper path does not call `GMGNExecutionGateway` or a live Nautilus execution client.
-- `/radar`, `/trading`, `/trading/simulation`, and `/terminal` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
-- `.env` is gitignored. The example file contains placeholders only.
+- `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only. Repeated authentication failures return HTTP 429. Auth rows do not store the token.
+- `.env` is gitignored. The example file contains placeholders only. Container and task templates do not contain a database URL or a token.
 - Simulation rows constrain `live_trading_enabled` to false. Run rows constrain `parameters_deployed` to false.
 - Terminal profile, preference, and notification rows constrain live trading to false. Telegram delivery is constrained to false.
 - Analyst findings set `authorizes_order` false. No external model is called.
+- Recovery rows constrain wallet reconciliation to `not_authorized` and `wallet_assumed_flat` to false. Worker rows constrain `cloud_deployed` to false.
 
 ## Exact next actions
 
-1. Do not start Phase 8 until the user asks.
+1. Do not start Phase 9 until the user asks.
 2. Do not add a signing key, an RPC provider, a swap, or a Telegram bot token. Wallet binding is a separate decision.
-3. Phase 8, when requested, is long-running local operations and a cloud design. It is not live execution.
+3. Do not register the supervisor task or deploy the cloud design unless the user authorizes that specific step.
+4. Phase 9, when requested, is a security and live-trading readiness review. It is not permission to trade live.
 
-## Phase 7 checklist
+## Phase 8 checklist
 
 | Done criterion | Result |
 |---|---|
-| Dashboard | Stored paper figures, with wallet SOL and USD explicitly unavailable. |
-| Scanner and radar pages | Stored cycle, filter, sort, and watchlist. A score does not authorize an entry. |
-| Token analysis, smart money, whales | Stored cycle rows and the candle chart. |
-| Portfolio | Shield equity, marks, cost, and open paper positions. Missing marks stay missing. |
-| Positions, trade history, strategies | Stored paper rows. Start and stop do not submit an order. |
-| Risk management | Stored Shield book. Pause and resume go through Shield. |
-| Backtesting and paper trading | Stored simulation reports. Parameters stay undeployed. |
-| Analytics | Stored equity, drawdown, campaign results, and separate research books. |
-| AI analyst | Local stored-evidence findings. Advisory only. |
-| Notifications | Local notices, categories, quiet period, and dedup. Telegram stays off. |
-| Settings | Mode display, locked live trading, locked manual orders, paper profiles. |
-| Health | Existing probe plus stored-evidence freshness. No Phase 8 supervisor. |
-| Paper only | Tests reject live and Telegram flags. Pause does not submit an order. |
-| Phase 8 not started | No worker supervisor, backup, or cloud resource was added. |
+| Background worker lifecycle | One supervisor run records radar, freshness, paper-position, and notice ticks. Radar stays offline unless `--include-radar`. |
+| Service supervision | Heartbeats, a restart limit, and failed-tick text that omits the exception. No Windows service was installed. |
+| Startup management | The API stops leftover `RUNNING` strategies and writes a recovery report. `scripts/run_supervisor.ps1` defaults to one tick. |
+| Recovery | Stored Shield presence, non-terminal paper orders, and position-versus-fill conflicts. Wallet not read and not assumed flat. New paper API entries block until the book is consistent. |
+| Database backup | `pg_dump` for loopback only. Password stays off the command line. No scheduled backup was installed. |
+| Health monitoring | `/health` adds worker, stored-cycle, queue, and websocket words. No new market-data call. |
+| Local authentication | Existing bearer token, an in-process failure limit, and `auth_events` without the token. |
+| Desktop reconnect | A 15-second loopback probe. The window does not start the API. |
+| Exportable diagnostics | Redacted JSON under `diagnostics/`. The environment is not included. |
+| Cloud design | `docs/operations/CLOUD_DESIGN.md` and `deploy/` templates. Nothing was deployed. |
+| Paper only | Live flags stay false. The supervisor does not submit an order. |
+| Phase 9 not started | No live-readiness report and no signer. |

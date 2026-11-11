@@ -24,9 +24,9 @@ class HealthPage(QWidget):
         mode = "PAPER" if settings.execution_mode is ExecutionMode.PAPER else "READ-ONLY"
         self.summary = QLabel(
             f"Phase {PHASE}. Mode {mode}. Python {sys.version.split()[0]}. "
-            "Live trading is locked. The GMGN card shows whether an API key is "
-            "configured. This page does not request market data. "
-            "No background worker supervisor is running."
+            "Live trading is locked. Worker, market-data, queue, and connection "
+            "cards read local status. This page does not start the API or a worker, "
+            "and it does not request market data."
         )
         self.summary.setObjectName("Notice")
         self.summary.setWordWrap(True)
@@ -40,11 +40,28 @@ class HealthPage(QWidget):
         row.addWidget(self.database_card)
         row.addWidget(self.backend_card)
         row.addWidget(self.gmgn_card)
+        second = QHBoxLayout()
+        second.setSpacing(12)
+        self.workers_card = StatusCard("Workers")
+        self.market_data_card = StatusCard("Market data")
+        self.queue_card = StatusCard("Queue")
+        self.connection_card = StatusCard("Connection")
+        second.addWidget(self.workers_card)
+        second.addWidget(self.market_data_card)
+        second.addWidget(self.queue_card)
+        second.addWidget(self.connection_card)
+        self.reconnect = QLabel(
+            "The desktop probes the loopback API again every 15 seconds. It does not start the API."
+        )
+        self.reconnect.setObjectName("Notice")
+        self.reconnect.setWordWrap(True)
         self.freshness = QLabel("Stored radar freshness has not been read.")
         self.freshness.setObjectName("Notice")
         self.freshness.setWordWrap(True)
         layout.addWidget(self.summary)
         layout.addLayout(row)
+        layout.addLayout(second)
+        layout.addWidget(self.reconnect)
         layout.addWidget(self.freshness)
         layout.addStretch(1)
 
@@ -63,12 +80,40 @@ class HealthPage(QWidget):
         self.database_card.set_status("unknown", message)
         self.backend_card.set_status("unknown", message)
         self.gmgn_card.set_status("unknown", message)
+        self.workers_card.set_status("unknown", message)
+        self.market_data_card.set_status("unknown", message)
+
+    def note_reconnect(self) -> None:
+        self.reconnect.setText("Probing the loopback API again. This window does not start it.")
 
     def apply_snapshot(self, snapshot: StatusSnapshot) -> None:
         self.application_card.apply(snapshot.application)
         self.database_card.apply(snapshot.database)
         self.backend_card.apply(snapshot.backend)
         self.gmgn_card.apply(snapshot.gmgn)
+        self.workers_card.apply(snapshot.workers)
+        self.market_data_card.apply(snapshot.market_data)
+        self.queue_card.apply(snapshot.queue)
+        self.connection_card.apply(snapshot.websocket)
+        if snapshot.backend.state == "offline":
+            self.reconnect.setText(
+                "The API is offline. The desktop will probe loopback again. "
+                "It does not start the API."
+            )
+        elif snapshot.backend.state == "running":
+            self.reconnect.setText(
+                "The API responded. The desktop will keep probing loopback. "
+                "It does not start the API."
+            )
 
     def _cards(self) -> tuple[StatusCard, ...]:
-        return (self.application_card, self.database_card, self.backend_card, self.gmgn_card)
+        return (
+            self.application_card,
+            self.database_card,
+            self.backend_card,
+            self.gmgn_card,
+            self.workers_card,
+            self.market_data_card,
+            self.queue_card,
+            self.connection_card,
+        )

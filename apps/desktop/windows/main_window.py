@@ -63,6 +63,9 @@ class MainWindow(QMainWindow):
         self._status: StatusSnapshot | None = None
         self._terminal: TerminalSnapshot | None = None
         self._cycle_generation = 0
+        self._reconnect_timer = QTimer(self)
+        self._reconnect_timer.setInterval(15_000)
+        self._reconnect_timer.timeout.connect(self._reconnect_probe)
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
         self._build()
@@ -257,6 +260,7 @@ class MainWindow(QMainWindow):
         self._status = snapshot
         self.dashboard.apply_snapshot(snapshot)
         self.health.apply_snapshot(snapshot)
+        self._schedule_reconnect()
         self._load_terminal()
 
     def _show_probe_failure(self, message: str) -> None:
@@ -264,10 +268,29 @@ class MainWindow(QMainWindow):
             return
         self.dashboard.show_probe_failure(message)
         self.health.show_probe_failure(message)
+        self.health.note_reconnect()
+        self._schedule_reconnect()
+
+    def _schedule_reconnect(self) -> None:
+        if self._closing or self._reconnect_timer.isActive():
+            return
+        self._reconnect_timer.start()
+
+    def _reconnect_probe(self) -> None:
+        if self._closing:
+            return
+        if self._probe is not None and self._probe.isRunning():
+            return
+        self.health.note_reconnect()
+        self._probe = StatusProbe(self._settings)
+        self._probe.snapshot_ready.connect(self.apply_snapshot)
+        self._probe.failed.connect(self._show_probe_failure)
+        self._probe.start()
 
     def shutdown(self) -> None:
         self._closing = True
         self._cycle_generation += 1
+        self._reconnect_timer.stop()
         probe = self._probe
         if probe is not None and probe.isRunning():
             probe.requestInterruption()

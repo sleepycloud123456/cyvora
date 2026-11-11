@@ -11,7 +11,7 @@ Read `PROJECT_STATUS.md` before starting work. Do not begin the next roadmap pha
 
 Boundaries already in the code:
 
-- The PySide6 desktop presents status and stored radar, paper, Shield, simulation, and terminal rows. Network, database, and GMGN calls stay off the UI thread.
+- The PySide6 desktop presents status and stored radar, paper, Shield, simulation, and terminal rows. Network, database, and GMGN calls stay off the UI thread. The desktop probes loopback health again. It does not start the API or a worker.
 - Radar scores do not authorize an order. A paper fill is not a chain confirmation. Unknown security data is not safe.
 - The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
 - PostgreSQL is the application database. Do not silently substitute SQLite.
