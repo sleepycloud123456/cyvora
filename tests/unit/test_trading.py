@@ -13,8 +13,8 @@ from apps.api.main import create_app
 from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.exceptions import TradingDisabled, TradingValidationError
+from domain.shield import PAPER_APPROVED, ExitKind, RiskIntent
 from domain.trading import (
-    SHIELD_NOT_AUTHORIZED,
     ExecutionReport,
     OrderSide,
     OrderState,
@@ -74,6 +74,50 @@ def _request(
         fee_quote=Decimal(fee),
         slippage_quote=Decimal(slippage),
         shield_approved=shield,
+        risk=None if shield else _risk(side, quantity, price, fee, slippage, price_decimals),
+    )
+
+
+def _risk(
+    side: OrderSide,
+    quantity: str,
+    price: str,
+    fee: str,
+    slippage: str,
+    price_decimals: int,
+) -> RiskIntent:
+    kind = ExitKind.ENTRY.value if side is OrderSide.BUY else ExitKind.NORMAL.value
+    stop = None if side is OrderSide.SELL else Decimal(price) / Decimal(2)
+    return RiskIntent(
+        mint=USDC,
+        side=side.value,
+        quantity=Decimal(quantity),
+        reference_price=Decimal(price),
+        fee_quote=Decimal(fee),
+        slippage_quote=Decimal(slippage),
+        size_decimals=6,
+        price_decimals=price_decimals,
+        quote_decimals=9,
+        quote_symbol="SOL",
+        stop_price=stop,
+        equity_quote=None if side is OrderSide.SELL else Decimal(10000),
+        sol_balance=None if side is OrderSide.SELL else Decimal(10000),
+        valued_at=None if side is OrderSide.SELL else NOW,
+        marks=(),
+        liquidity_quote=None if side is OrderSide.SELL else Decimal(100000),
+        volatility=None,
+        confidence=None,
+        token_age_seconds=None,
+        market_condition=None,
+        security=None if side is OrderSide.SELL else "clear",
+        creator=None if side is OrderSide.SELL else "DeskWallet",
+        narrative=None if side is OrderSide.SELL else "momentum",
+        liquidity_provider=None,
+        driver=None,
+        estimated_impact=None,
+        exit_kind=kind,
+        signal_ref=None,
+        emergency=None,
     )
 
 
@@ -115,7 +159,7 @@ def test_buy_fee_changes_average_and_a_repeat_key_does_not() -> None:
     store, gateway, _manager = _stack()
     first = gateway.submit(_request(fee="1"))
     assert first.state is OrderState.CONFIRMED
-    assert first.shield_decision == SHIELD_NOT_AUTHORIZED
+    assert first.shield_decision == PAPER_APPROVED
     assert first.simulated is True
     position = store.positions[USDC]
     assert position.quantity == Decimal(4)
@@ -187,7 +231,7 @@ def test_strategy_cannot_approve_or_submit_while_stopped() -> None:
     with pytest.raises(TradingDisabled, match="cannot approve"):
         manager.submit("core-slot", _request("paper-approved", shield=True))
     order = manager.submit("core-slot", _request())
-    assert order.shield_decision == SHIELD_NOT_AUTHORIZED
+    assert order.shield_decision == PAPER_APPROVED
     assert manager.stop_running() == 1
     assert store.get_strategy("core-slot").state.value == "STOPPED"  # type: ignore[union-attr]
 
@@ -323,7 +367,7 @@ def test_trading_routes_require_a_token_and_stay_simulated(tmp_path) -> None:  #
     body = status.json()
     assert body["live_trading_enabled"] is False
     assert body["paper_orders_enabled"] is True
-    assert body["shield_decision"] == "not_authorized"
+    assert body["shield_decision"] == "enforcing"
     assert body["nautilus_version"] == NAUTILUS_VERSION
     refused = client.post("/trading/live/swap", headers=headers)
     assert refused.status_code == 403
@@ -353,10 +397,42 @@ def test_trading_routes_require_a_token_and_stay_simulated(tmp_path) -> None:  #
         },
     )
     assert created.status_code == 200
-    payload = created.json()
+    denied = created.json()
+    assert denied["state"] == "FAILED"
+    assert denied["reason"] == "valuation_unverified"
+    assert denied["shield_decision"] == "denied"
+    assert denied["simulated"] is True
+    assert USDC not in store.positions
+    approved = client.post(
+        "/trading/paper/orders",
+        headers=headers,
+        json={
+            "strategy_id": "core-slot",
+            "mint": USDC,
+            "symbol": "USDC",
+            "side": "BUY",
+            "quantity": "2",
+            "reference_price": "1.5",
+            "quote_symbol": "SOL",
+            "size_decimals": 6,
+            "price_decimals": 6,
+            "quote_decimals": 9,
+            "idempotency_key": "route-order-approved",
+            "stop_price": "1",
+            "equity_quote": "10000",
+            "sol_balance": "10000",
+            "valued_at": "2026-11-11T00:00:00+00:00",
+            "liquidity_quote": "100000",
+            "security": "clear",
+            "creator": "DeskWallet",
+            "narrative": "momentum",
+        },
+    )
+    assert approved.status_code == 200
+    payload = approved.json()
     assert payload["state"] == "CONFIRMED"
     assert payload["simulated"] is True
-    assert payload["shield_decision"] == "not_authorized"
+    assert payload["shield_decision"] == "paper_approved"
     assert store.positions[USDC].quantity == Decimal(2)
     positions = client.get("/trading/positions", headers=headers)
     assert positions.json()[0]["quantity"] == "2"
@@ -386,7 +462,7 @@ def test_trading_source_has_no_signer_or_gmgn_trade_call() -> None:
     root = Path(__file__).resolve().parents[2]
     text = "\n".join(
         path.read_text(encoding="utf-8")
-        for directory in (root / "trading", root / "integrations" / "solana")
+        for directory in (root / "trading", root / "integrations" / "solana", root / "shield")
         for path in directory.rglob("*.py")
     )
     assert "GMGN_PRIVATE_KEY" not in text

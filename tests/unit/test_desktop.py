@@ -36,13 +36,17 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     assert window.windowTitle() == "CYVORA Terminal"
     assert window.mode_badge.text() == "READ-ONLY"
     assert "not available" in window.dashboard.notice.text()
-    matches = window.navigation.findItems("Risk Management", Qt.MatchFlag.MatchExactly)
+    matches = window.navigation.findItems("Portfolio", Qt.MatchFlag.MatchExactly)
     assert matches
     window.navigation.setCurrentItem(matches[0])
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.placeholder)
-    assert window.page_title.text() == "Risk Management"
+    assert window.page_title.text() == "Portfolio"
     assert "Placeholder" in window.placeholder.body.text()
-    assert "Phase 4" in window.placeholder.body.text()
+    assert "Phase 5" in window.placeholder.body.text()
+    risk_matches = window.navigation.findItems("Risk Management", Qt.MatchFlag.MatchExactly)
+    window.navigation.setCurrentItem(risk_matches[0])
+    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.risk)
+    assert "not configured" in window.risk.notice.text()
     strategy_matches = window.navigation.findItems("Strategies", Qt.MatchFlag.MatchExactly)
     window.navigation.setCurrentItem(strategy_matches[0])
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.strategies)

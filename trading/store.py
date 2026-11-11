@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+from domain.shield import ShieldDecisionRecord, ShieldNotice, ShieldSnapshot
 from domain.trading import (
     OrderRecord,
     PositionRecord,
@@ -27,6 +28,17 @@ class OrderEventWrite:
 
 
 @dataclass(frozen=True)
+class LedgerContext:
+    """Rows the gateway may read while the store holds its lock."""
+
+    existing: OrderRecord | None
+    position: PositionRecord | None
+    positions: tuple[PositionRecord, ...]
+    orders: tuple[OrderRecord, ...]
+    shield: ShieldSnapshot
+
+
+@dataclass(frozen=True)
 class PaperCommit:
     """A finished paper attempt. ``unchanged`` means the key was already stored."""
 
@@ -35,9 +47,12 @@ class PaperCommit:
     position: PositionRecord | None
     instrument: SolanaInstrument | None
     unchanged: bool
+    shield: ShieldSnapshot | None = None
+    shield_record: ShieldDecisionRecord | None = None
+    notices: tuple[ShieldNotice, ...] = ()
 
 
-PaperBuilder = Callable[[OrderRecord | None, PositionRecord | None], PaperCommit]
+PaperBuilder = Callable[[LedgerContext], PaperCommit]
 
 
 class TradingStore(Protocol):
@@ -83,3 +98,20 @@ class TradingStore(Protocol):
 
     def snapshot(self) -> TradingSnapshot:
         """Read the ledger for the terminal."""
+
+    def load_shield(self) -> ShieldSnapshot:
+        """Return the persisted risk book, or the documented defaults."""
+
+    def save_shield(
+        self,
+        snapshot: ShieldSnapshot,
+        record: ShieldDecisionRecord | None = None,
+        notices: tuple[ShieldNotice, ...] = (),
+    ) -> None:
+        """Persist a risk book. A record with live trading enabled is rejected."""
+
+    def list_notices(self) -> tuple[ShieldNotice, ...]:
+        """Return the latest local Shield notes, oldest first."""
+
+    def list_decisions(self) -> tuple[ShieldDecisionRecord, ...]:
+        """Return the latest paper decisions, oldest first."""

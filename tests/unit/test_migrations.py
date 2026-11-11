@@ -28,6 +28,18 @@ def test_trading_revision_rejects_live_order_states() -> None:
     assert "ck_trading_orders_shield" in source
 
 
+def test_shield_revision_keeps_live_trading_off() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261111_0004_shield_risk_engine.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0004_shield_risk_engine"' in source
+    assert 'down_revision: str | None = "0003_trading_infrastructure"' in source
+    assert "ck_shield_decisions_live" in source
+    assert "paper_approved" in source
+    assert "live_approved" not in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -38,5 +50,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0003_trading_infrastructure" in result.stdout
+    assert "0004_shield_risk_engine" in result.stdout
     assert "postgresql" not in result.stdout.lower()

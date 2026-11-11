@@ -20,12 +20,15 @@ from apps.desktop.pages.dashboard_page import DashboardPage
 from apps.desktop.pages.health_page import HealthPage
 from apps.desktop.pages.placeholder_page import PlaceholderPage
 from apps.desktop.pages.radar_page import RadarPage
+from apps.desktop.pages.shield_page import ShieldPage
 from apps.desktop.pages.trading_page import TradingPage
 from apps.desktop.services.probe import StatusProbe
 from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
+from apps.desktop.services.shield_worker import ShieldLoadWorker
 from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
+from domain.shield import ShieldNotice, ShieldSnapshot
 from domain.status import StatusSnapshot
 from domain.trading import TradingSnapshot
 from intelligence.schedule import next_delay_seconds
@@ -44,6 +47,7 @@ class MainWindow(QMainWindow):
         self._radar_cycle: RadarCycleWorker | None = None
         self._watch_worker: WatchWorker | None = None
         self._trading_load: TradingLoadWorker | None = None
+        self._shield_load: ShieldLoadWorker | None = None
         self._cycle_generation = 0
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
@@ -127,6 +131,7 @@ class MainWindow(QMainWindow):
         self.positions = TradingPage("positions")
         self.orders = TradingPage("orders")
         self.strategies = TradingPage("strategies")
+        self.risk = ShieldPage()
         self.scanner.run_button.clicked.connect(self._start_cycle)
         self.scanner.continuous.toggled.connect(self._continuous_toggled)
         self.scanner.watch_add.connect(self._add_watch)
@@ -136,7 +141,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.placeholder)
         for page in self._radar_pages():
             self.stack.addWidget(page)
-        for trading_page in (self.positions, self.orders, self.strategies):
+        for trading_page in (self.positions, self.orders, self.strategies, self.risk):
             self.stack.addWidget(trading_page)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
@@ -177,6 +182,10 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(trading)
             self._load_trading()
             return
+        if name == "Risk Management":
+            self.stack.setCurrentWidget(self.risk)
+            self._load_shield()
+            return
         self.placeholder.show_page(name)
         self.stack.setCurrentWidget(self.placeholder)
 
@@ -212,6 +221,7 @@ class MainWindow(QMainWindow):
             self._radar_cycle,
             self._watch_worker,
             self._trading_load,
+            self._shield_load,
         ):
             if worker is not None and worker.isRunning():
                 worker.requestInterruption()
@@ -235,6 +245,26 @@ class MainWindow(QMainWindow):
             return
         for page in (self.positions, self.orders, self.strategies):
             page.show_snapshot(snapshot)
+
+    def _load_shield(self) -> None:
+        if not self._settings.database_url:
+            self.risk.show_message(
+                "Shield storage is not configured. No portfolio valuation is shown."
+            )
+            return
+        if self._shield_load is not None and self._shield_load.isRunning():
+            return
+        self._shield_load = ShieldLoadWorker(self._settings)
+        self._shield_load.loaded.connect(self._apply_shield)
+        self._shield_load.failed.connect(self.risk.show_message)
+        self._shield_load.start()
+
+    def _apply_shield(self, snapshot: object, notices: object) -> None:
+        if self._closing or not isinstance(snapshot, ShieldSnapshot):
+            return
+        rows = notices if isinstance(notices, tuple) else ()
+        typed = tuple(item for item in rows if isinstance(item, ShieldNotice))
+        self.risk.show_snapshot(snapshot, typed)
 
     def _trading_message(self, text: str) -> None:
         if self._closing:

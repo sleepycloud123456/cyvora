@@ -1,6 +1,6 @@
 # Security model
 
-Phase 4 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 5 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
@@ -11,7 +11,7 @@ Phase 4 scope. This document describes controls that exist in the repository tod
 | GMGN API key | `GMGN_API_KEY`, or `CYVORA_GMGN_API_KEY` | `SecretStr`. Logs, `repr`, and `model_dump` do not show the value. Health reports `configured` or `not_configured`. |
 | Application status | Memory | Returned by `/health` and shown in the terminal. |
 | Market data | GMGN read-only calls, then PostgreSQL | Stored as radar history and shown from that store. Not invented when the store is empty. |
-| Paper orders and positions | PostgreSQL | Explicit simulated rows. `shield_decision` is `not_authorized`. |
+| Paper orders and positions | PostgreSQL | Explicit simulated rows. Shield stores `paper_approved` or `denied`. |
 | Wallet keys | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
 
 ## Credentials
@@ -28,7 +28,7 @@ Agents must not print the environment and must not open `.env`.
 
 There is no signer and no transaction builder. `GMGNExecutionGateway.submit` raises `GMGNExecutionBlocked` and does not open a socket. `refuse_live_execution` raises before a store write. `GET /v1/user/wallet_holdings` raises before HTTP because the official client signs it.
 
-`PAPER` may store a simulated order. The gateway rejects a request that sets `shield_approved`. Read-only mode stores no order. The order table's check constraints reject a live state, a non-paper mode, and any shield value other than `not_authorized`. The Nautilus proof uses `BacktestEngine` only. It does not register a live execution client.
+`PAPER` may store a simulated order after Shield evaluates it. The gateway rejects a request that sets `shield_approved`. Read-only mode stores no order. The order table's check constraints reject a live state and a non-paper mode. Shield decisions are `paper_approved`, `denied`, or the legacy value `not_authorized`. Decision rows constrain `live_trading_enabled` to false. The Nautilus proof uses `BacktestEngine` only. It does not register a live execution client.
 
 ## Local API
 
@@ -44,11 +44,11 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 
 Alembic will not connect when the URL is unset. Connection failures return a fixed sentence. The SQLAlchemy engine is created with `NullPool` for the check and is disposed immediately. Echo is left off so statements are not printed.
 
-`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. `0003_trading_infrastructure` creates the paper ledger. None of them inserts a secret or grants remote access.
+`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. `0003_trading_infrastructure` creates the paper ledger. `0004_shield_risk_engine` creates the paper risk book. None of them inserts a secret or grants remote access.
 
 ## Audit
 
-Radar cycle saves and watchlist adds or removals insert `audit_events` with an action, a result, and a subject such as `sol:<address>`. Paper orders insert `trading_order_events` with the state and a fixed note. The note records `TradeIntentCreated` and `ExecutionConfirmed` as simulator events. It does not store the API key, the database URL, or a signature. Emergency stops are not recorded yet because Shield is not implemented.
+Radar cycle saves and watchlist adds or removals insert `audit_events` with an action, a result, and a subject such as `sol:<address>`. Paper orders insert `trading_order_events` with the state and a fixed note. The note records `TradeIntentCreated` and `ExecutionConfirmed` as simulator events. Shield inserts decision and notice rows for paper approvals, denials, breaches, emergencies, and recoveries. Those rows do not store the API key, the database URL, or a signature. An emergency notice does not submit an order.
 
 ## Fail-safe defaults
 

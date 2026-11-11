@@ -68,6 +68,6 @@ A paper fill moves through `CREATED`, `VALIDATED`, `SIMULATION_PENDING`, `SIMULA
 
 Reconciliation compares the stored order with a supplied report. A missing or conflicting report sets the order to `UNKNOWN`, leaves the position unchanged, and does not submit another order.
 
-The strategy manager registers a slot, starts it only in paper mode, and routes an explicit intent. Every stored order has `shield_decision = not_authorized`. A request that claims Shield approval is refused. The API process sets `RUNNING` strategies back to `STOPPED` when it starts. The desktop shows the stored rows and does not start a strategy.
+The strategy manager registers a slot, starts it only in paper mode, and routes an explicit intent. Shield evaluates that intent. A stored decision is `paper_approved` or `denied`. A request that claims approval by itself is refused. `paper_approved` allows the local simulator only. The API process sets `RUNNING` strategies back to `STOPPED` when it starts. The desktop shows the stored rows and does not start a strategy.
 
-No signal strategy is implemented. Shield, the paper broker, and cost models are later phases.
+No signal strategy is implemented. The paper broker and cost models remain later phases. Shield's rules are in `docs/trading/SHIELD.md`.
