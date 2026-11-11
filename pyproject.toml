@@ -14,6 +14,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "uvicorn>=0.32",
     "httpx2>=2.16",
+    "nautilus-trader==1.231.0",
 ]
 
 [project.scripts]
@@ -39,9 +40,8 @@ packages = ["apps", "config", "database", "domain", "integrations", "intelligenc
 [tool.hatch.build.targets.wheel.force-include]
 "apps/desktop/themes/cyvora.qss" = "apps/desktop/themes/cyvora.qss"
 
-# NautilusTrader is intentionally absent in Phase 1.
-# The recorded stable candidate is 1.231.0 on Python 3.13. See TECHNICAL_DECISIONS.md.
-# Pre-release 2.x is not a project dependency.
+# Stable NautilusTrader 1.231.0 on Python 3.13. Do not add a 2.x pre-release.
+# See docs/architecture/TECHNICAL_DECISIONS.md.
 
 [tool.uv]
 package = true
