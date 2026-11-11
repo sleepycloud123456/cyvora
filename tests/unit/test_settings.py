@@ -18,6 +18,12 @@ def test_defaults_are_read_only_and_loopback() -> None:
     assert settings.api_port == 8787
     assert settings.database_url is None
     assert settings.environment == "local"
+    assert settings.ui_animations is True
+
+
+def test_ui_animations_can_be_disabled() -> None:
+    settings = Settings(_env_file=None, ui_animations=False)
+    assert settings.ui_animations is False
 
 
 def test_env_file_can_select_paper_mode(tmp_path: Path) -> None:

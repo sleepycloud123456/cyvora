@@ -7,15 +7,14 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from apps.desktop.navigation import DASHBOARD, PAGES, SYSTEM_HEALTH, TERMINAL_PAGES
+from apps.desktop.components.nav_rail import NavRail
+from apps.desktop.motion import PageStage, configure_motion, reveal
+from apps.desktop.navigation import CATALOG, DASHBOARD, SYSTEM_HEALTH, TERMINAL_PAGES
 from apps.desktop.pages.analyst_page import AnalystPage
 from apps.desktop.pages.analytics_page import AnalyticsPage
 from apps.desktop.pages.dashboard_page import DashboardPage
@@ -68,6 +67,7 @@ class MainWindow(QMainWindow):
         self._reconnect_timer.timeout.connect(self._reconnect_probe)
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
+        configure_motion(settings.ui_animations)
         self._build()
         self._show_page(DASHBOARD)
         if start_probe:
@@ -93,50 +93,38 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(shell)
 
     def _build_sidebar(self) -> QWidget:
-        sidebar = QFrame()
-        sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(260)
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(16, 20, 16, 16)
-        layout.setSpacing(6)
-
-        brand = QLabel("CYVORA")
-        brand.setObjectName("BrandTitle")
-        slogan = QLabel("TRADE BEYOND LIMITS.")
-        slogan.setObjectName("Slogan")
-        self.mode_badge = QLabel(self._mode_text())
-        self.mode_badge.setObjectName("ModeBadge")
-        self.mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lock = QLabel("Live trading is locked")
-        lock.setObjectName("LockNote")
-
-        self.navigation = QListWidget()
-        self.navigation.setObjectName("Navigation")
-        self.navigation.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.navigation.setFrameShape(QFrame.Shape.NoFrame)
-        for name in PAGES:
-            QListWidgetItem(name, self.navigation)
-        self.navigation.currentTextChanged.connect(self._show_page)
-        self.navigation.setCurrentRow(0)
-
-        layout.addWidget(brand)
-        layout.addWidget(slogan)
-        layout.addSpacing(10)
-        layout.addWidget(self.mode_badge)
-        layout.addWidget(lock)
-        layout.addSpacing(8)
-        layout.addWidget(self.navigation, stretch=1)
-        return sidebar
+        self.navigation = NavRail(tuple(item for item in CATALOG if item.shown))
+        self.navigation.page_selected.connect(self.show_page)
+        return self.navigation
 
     def _build_content(self) -> QWidget:
         content = QFrame()
         content.setObjectName("Content")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(28, 22, 28, 22)
-        layout.setSpacing(8)
+        layout.setContentsMargins(40, 28, 44, 28)
+        layout.setSpacing(22)
+        header = QHBoxLayout()
+        header.setSpacing(24)
+        titles = QVBoxLayout()
+        titles.setSpacing(4)
         self.page_title = QLabel(DASHBOARD)
         self.page_title.setObjectName("PageTitle")
-        self.stack = QStackedWidget()
+        self.slogan = QLabel("TRADE BEYOND LIMITS.")
+        self.slogan.setObjectName("Slogan")
+        titles.addWidget(self.page_title)
+        titles.addWidget(self.slogan)
+        self.mode_badge = QLabel(self._mode_text())
+        self.mode_badge.setObjectName("ModeBadge")
+        self.mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mode_badge.setToolTip(
+            "Configured mode. Live trading is locked. "
+            "Changing READ_ONLY or PAPER is an environment change and a restart."
+        )
+        header.addLayout(titles)
+        header.addStretch(1)
+        header.addWidget(self.mode_badge, alignment=Qt.AlignmentFlag.AlignTop)
+        self.stage = PageStage()
+        self.stack = self.stage.stack
         self.dashboard = DashboardPage()
         self.health = HealthPage(self._settings)
         self.placeholder = PlaceholderPage()
@@ -184,27 +172,46 @@ class MainWindow(QMainWindow):
         self.settings_page.resume_requested.connect(self._resume_entries)
         self.settings_page.kill_engage_requested.connect(self._engage_kill_switch)
         self.settings_page.kill_release_requested.connect(self._release_kill_switch)
-        layout.addWidget(self.page_title)
-        layout.addWidget(self.stack, stretch=1)
+        self.settings_page.set_motion(self._settings.ui_animations)
+        self.settings_page.motion_toggled.connect(self._apply_motion)
+        layout.addLayout(header)
+        layout.addWidget(self.stage, stretch=1)
         return content
+
+    def _apply_motion(self, enabled: bool) -> None:
+        configure_motion(enabled)
+        if enabled:
+            self.dashboard.hologram.sync()
+            return
+        self.dashboard.hologram.stop()
 
     def _mode_text(self) -> str:
         if self._settings.execution_mode is ExecutionMode.PAPER:
             return "PAPER"
         return "READ-ONLY"
 
+    def show_page(self, name: str) -> None:
+        """Open a catalog page. Hidden pages still open here; the rail does not list them."""
+
+        self._show_page(name)
+
     def _show_page(self, name: str) -> None:
         if not name:
             return
         self.page_title.setText(name)
+        self.navigation.mark(name)
+        widget = self._page_widget(name)
+        if widget is None:
+            self.placeholder.show_page(name)
+            widget = self.placeholder
+        reveal(self.stage, widget)
+        self._load_page(name)
+
+    def _page_widget(self, name: str) -> QWidget | None:
         if name == DASHBOARD:
-            self.stack.setCurrentWidget(self.dashboard)
-            self._show_cached_terminal()
-            self._load_terminal()
-            return
+            return self.dashboard
         if name == SYSTEM_HEALTH:
-            self.stack.setCurrentWidget(self.health)
-            return
+            return self.health
         radar = {
             "Live Scanner": self.scanner,
             "Trending Tokens": self.trending,
@@ -214,39 +221,58 @@ class MainWindow(QMainWindow):
             "Whale Tracker": self.whales,
         }.get(name)
         if radar is not None:
-            self.stack.setCurrentWidget(radar)
-            return
+            return radar
         trading = {
             "Open Positions": self.positions,
             "Trade History": self.orders,
             "Strategies": self.strategies,
         }.get(name)
         if trading is not None:
-            self.stack.setCurrentWidget(trading)
-            self._load_trading()
-            return
+            return trading
         if name == "Risk Management":
-            self.stack.setCurrentWidget(self.risk)
-            self._load_shield()
-            return
-        if name in {"Backtesting", "Paper Trading"}:
-            self.stack.setCurrentWidget(self.backtests if name == "Backtesting" else self.paper)
-            self._load_simulation()
-            return
-        terminal_page = {
-            "Portfolio": self.portfolio,
-            "Analytics": self.analytics,
-            "CYVORA Intelligence": self.analyst,
-            "Notifications": self.notifications,
-            "Settings": self.settings_page,
-        }.get(name)
-        if name in TERMINAL_PAGES and terminal_page is not None:
-            self.stack.setCurrentWidget(terminal_page)
+            return self.risk
+        if name == "Backtesting":
+            return self.backtests
+        if name == "Paper Trading":
+            return self.paper
+        if name in TERMINAL_PAGES:
+            return {
+                "Portfolio": self.portfolio,
+                "Analytics": self.analytics,
+                "CYVORA Intelligence": self.analyst,
+                "Notifications": self.notifications,
+                "Settings": self.settings_page,
+            }.get(name)
+        return None
+
+    def _load_page(self, name: str) -> None:
+        if name == DASHBOARD:
             self._show_cached_terminal()
             self._load_terminal()
             return
-        self.placeholder.show_page(name)
-        self.stack.setCurrentWidget(self.placeholder)
+        if name == SYSTEM_HEALTH:
+            return
+        if name in {
+            "Live Scanner",
+            "Trending Tokens",
+            "New Launches",
+            "Token Analysis",
+            "Smart Money",
+            "Whale Tracker",
+        }:
+            return
+        if name in {"Open Positions", "Trade History", "Strategies"}:
+            self._load_trading()
+            return
+        if name == "Risk Management":
+            self._load_shield()
+            return
+        if name in {"Backtesting", "Paper Trading"}:
+            self._load_simulation()
+            return
+        if name in TERMINAL_PAGES:
+            self._show_cached_terminal()
+            self._load_terminal()
 
     def start_probe(self) -> None:
         self.dashboard.set_checking()
@@ -293,6 +319,7 @@ class MainWindow(QMainWindow):
         self._closing = True
         self._cycle_generation += 1
         self._reconnect_timer.stop()
+        self.dashboard.hologram.stop()
         probe = self._probe
         if probe is not None and probe.isRunning():
             probe.requestInterruption()

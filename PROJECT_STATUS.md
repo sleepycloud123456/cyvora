@@ -12,6 +12,7 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## Completed work
 
+- Terminal visual redesign on 2026-11-11. Black surfaces, a purple accent, an icon rail, compact pages, and a dashboard hologram. Live trading stays locked. Radar, Portfolio, CYVORA Intelligence, and Settings remain in the navigation catalog and are not on the rail.
 - Phase 1 foundation, merged as PR #1.
 - Phase 2 read-only GMGN client, merged as PR #2 (`4c48ad7`).
 - Phase 3 radar cycle, merged as PR #3 (`e9ffb3c`).
@@ -31,6 +32,15 @@ Nothing inside Phase 9. A paper-only Nautilus health check and two local securit
 None for the readiness boundary. Live trading is still disabled. The report, a paper approval, a profile, an analyst finding, and a released kill switch do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
+
+Recorded on 2026-11-11 after the terminal visual redesign:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 156 passed, 3 skipped. The skips are the opt-in GMGN and radar live smokes, and the PostgreSQL connectivity check because `CYVORA_DATABASE_URL` was unset in that run.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database not configured, backend offline, and GMGN not configured.
+- The smoke mode was `READ_ONLY`. Live trading stayed disabled. No operator paper order was inserted.
 
 Recorded on 2026-11-11 after the Phase 9 run:
 

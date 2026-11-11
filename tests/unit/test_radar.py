@@ -8,7 +8,6 @@ from decimal import Decimal
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
-from PySide6.QtCore import Qt
 
 from apps.api.main import create_app
 from apps.desktop.windows.main_window import MainWindow
@@ -396,9 +395,9 @@ def test_scanner_page_does_not_invent_tokens(qtbot) -> None:  # type: ignore[no-
     window = MainWindow(Settings(_env_file=None, database_url=None), start_probe=False)
     qtbot.addWidget(window)
     window.show()
-    matches = window.navigation.findItems("Live Scanner", Qt.MatchFlag.MatchExactly)
-    window.navigation.setCurrentItem(matches[0])
-    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.scanner)
+    assert "Live Scanner" not in window.navigation.names()
+    window.show_page("Live Scanner")
+    assert window.stack.currentWidget() is window.scanner
     assert window.page_title.text() == "Live Scanner"
     assert "not configured" in window.scanner.summary.text()
     assert window.scanner.table.rowCount() == 0

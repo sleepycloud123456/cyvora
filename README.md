@@ -11,14 +11,14 @@ Slogan: TRADE BEYOND LIMITS.
 - Project configuration, structured logging, and fail-closed execution modes (`READ_ONLY` or `PAPER`).
 - A FastAPI health endpoint bound to loopback.
 - SQLAlchemy models and the first Alembic revision, applied to local PostgreSQL 17.
-- A PySide6 terminal with branding, navigation, and application, database, backend, and GMGN configuration status.
+- A PySide6 terminal with a black and purple icon rail, a mode badge, and application, database, backend, and GMGN configuration status.
 - A read-only GMGN client for market and token research. Trade and signing routes are refused.
 - Radar discovery, security, liquidity, indicators, smart-money and whale tag counts, a documented score, rankings, watchlists, and PostgreSQL history.
 - A paper execution gateway, order states, position accounting, a strategy registry, and a NautilusTrader 1.231.0 mapping proof.
 - CYVORA Shield, which approves or denies paper orders. A paper approval cannot submit a live order.
 - Cursor project rules and `AGENTS.md`.
 
-Every sidebar page is implemented. Portfolio, Analytics, CYVORA Intelligence, Notifications, and Settings read the stored paper book. Wallet SOL, USD value, and live trading stay unavailable. See [Terminal](docs/terminal/TERMINAL.md).
+The icon rail lists the operating pages. Radar, Portfolio, CYVORA Intelligence, and Settings stay in the navigation catalog and are not on the rail. Wallet SOL, USD value, and live trading stay unavailable. See [Terminal](docs/terminal/TERMINAL.md).
 
 ## Prerequisites
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 — 2026-11-11 — Terminal visual redesign
+
+- Restyled CYVORA Terminal: black surfaces, a purple accent, a slim icon rail, and shorter pages. Secondary copy sits behind Details. Empty states stay one line.
+- The rail lists Dashboard, Open Positions, Trade History, Paper Trading, Strategies, Backtesting, Risk Management, Analytics, Notifications, and System Health. Radar, Portfolio, CYVORA Intelligence, and Settings stay in `navigation.CATALOG` with `shown` false. Their widgets remain.
+- The header shows `READ-ONLY` or `PAPER`. Live trading stays locked. No control on the desktop can enable it.
+- Added a dashboard hologram, page fades, and icon glow. `CYVORA_UI_ANIMATIONS=false` stops that motion at startup. The Settings checkbox applies the same flag for the session and does not write the environment.
+
 ## 0.9.1 — 2026-11-11 — Nautilus health and local auth follow-up
 
 - Checked NautilusTrader 1.231.0 on the paper path: import, backtest node startup and shutdown, instrument load, a filled paper position, Shield round-trip PnL, kill-switch refusal, and a three-bar backtest. The report is `docs/status/NAUTILUS_HEALTH.md`.

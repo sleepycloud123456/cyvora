@@ -1,10 +1,24 @@
 # CYVORA Terminal
 
-Date: 2026-11-11. Phase 7 completes the desktop pages. It reads stored radar, paper, Shield, and simulation rows. It does not add a wallet, a signer, or a live order.
+Date: 2026-11-11. The desktop reads stored radar, paper, Shield, and simulation rows. It does not add a wallet, a signer, or a live order. The surface is black with a purple accent. Live trading stays locked.
+
+## Navigation
+
+The window opens on an icon rail. The visible pages, in order, are Dashboard, Open Positions, Trade History, Paper Trading, Strategies, Backtesting, Risk Management, Analytics, Notifications, and System Health. Each icon has a tooltip with the page name. The active icon uses the purple accent.
+
+`apps/desktop/navigation.py` keeps one catalog. Pages removed from the rail stay in that catalog with `shown` false: the six radar pages, Portfolio, CYVORA Intelligence, and Settings. Their widgets and data paths remain. Set `shown` to true to put a page back on the rail in list order.
+
+The header shows the configured mode, `READ-ONLY` or `PAPER`, and the slogan TRADE BEYOND LIMITS. The mode badge tooltip states that live trading is locked. Changing the mode is still an environment change and a restart. Settings remains the page that stores profiles, notification preferences, pause, resume, the kill switch, and the session motion checkbox. It is not on the rail.
+
+Long explanations sit behind a Details control. Empty books stay one short line. No page is filled with sample prices.
+
+## Motion
+
+The Dashboard draws a purple holographic wireframe: a projected sphere, a light cone, scanlines, a slow flicker, and a chromatic edge. Page changes fade and settle. Icons and cards pick up a purple glow on hover and when active. `CYVORA_UI_ANIMATIONS=false` stops the hologram timer, the page fade, and the glow animation at startup. The Settings page checkbox applies the same flag for the current session and does not write the environment. The colors stay either way. Restart the desktop after changing the environment flag.
 
 ## Pages
 
-Dashboard, the six radar pages, Open Positions, Trade History, Strategies, Risk Management, Portfolio, Backtesting, Paper Trading, Analytics, CYVORA Intelligence, Notifications, Settings, and System Health all read stored data or say that the data is missing. An empty book is an empty state. It is not filled with sample prices.
+Every catalog page reads stored data or says that the data is missing. An empty book is an empty state. It is not filled with sample prices.
 
 ## Portfolio figures
 
@@ -26,7 +40,7 @@ Notices are inserted from stored discoveries, confirmed paper orders, Shield dec
 
 ## Settings and controls
 
-The configured mode is shown. Changing `READ_ONLY` or `PAPER` is an environment change and a restart. There is no control that can set a live mode. Manual order entry is locked. Strategy start and stop call the existing paper registry and do not submit an order. Pause and resume call Shield. Resume is refused while a breach is latched or an emergency halt trigger is active. A pause does not submit an order.
+The configured mode is the header badge. The Settings page is off the rail and still holds the same controls. Changing `READ_ONLY` or `PAPER` is an environment change and a restart. There is no control that can set a live mode. Manual order entry is locked. Strategy start and stop call the existing paper registry and do not submit an order. Pause and resume call Shield. Resume is refused while a breach is latched or an emergency halt trigger is active. A pause does not submit an order. The motion checkbox changes only the desktop animation.
 
 A trading profile stores a name, strategy ids, and an optional signal threshold from 0 to 1. The threshold is not applied to the radar score or to Shield. Global Shield limits remain the only trade-approval authority.
 
