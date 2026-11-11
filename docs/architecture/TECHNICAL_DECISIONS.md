@@ -86,7 +86,7 @@ Date: 2026-11-11.
 
 The master tree names `trading/nautilus`, `trading/execution`, `trading/portfolio`, and `trading/strategies`. Phase 4 uses those packages for the mapping, the paper gateway, position accounting, and a strategy registry. It does not add `momentum.py` or the other signal modules. There is no second trading process. The API and the desktop call the same repository.
 
-A paper fill price is the caller's reference price plus a caller-supplied quote slippage. That is not a pool-impact model. Shield must approve the paper order before that fill is stored. The database check constraint rejects live order states and `simulated = false`.
+A paper fill price is the caller's reference price plus the quote slippage on the request. Phase 4 did not calculate pool impact. Phase 6 does, before the request reaches this gateway. Shield must approve the paper order before that fill is stored. The database check constraint rejects live order states and `simulated = false`.
 
 ## Shield stays a paper decision
 
@@ -94,6 +94,16 @@ Date: 2026-11-11.
 
 The master spec makes Shield the trade-approval authority and lists position sizing, stops, take-profits, trails, loss limits, correlation, allocation, liquidity, and an emergency stop. Phase 5 implements those as pure `Decimal` decisions in `shield/`. The paper gateway calls `evaluate` inside the ledger lock. A denial is stored as a failed paper order and does not change the position. An approval stores `paper_approved` and then runs the existing simulator.
 
-The spec also describes wallet equity, SOL reserve, and emergency liquidation-style exits. This phase does not read a wallet. Verified equity is a caller-supplied paper valuation that must equal SOL plus marked positions. The detector records an emergency and does not submit an order. Reduce-only paper sells stay available during a breach. Automatic stop execution is left for the Phase 6 broker.
+The spec also describes wallet equity, SOL reserve, and emergency liquidation-style exits. This phase does not read a wallet. Verified equity is a caller-supplied paper valuation that must equal SOL plus marked positions. The detector records an emergency and does not submit an order. Reduce-only paper sells stay available during a breach. The Phase 6 broker submits ordinary stops, take-profits, and time exits as new paper orders. It does not invent an emergency.
 
 A planned stop is not treated as a guaranteed sale. Correlation is shared supplied tags, not an estimated coefficient. The formulas and the initial limits are in `docs/trading/SHIELD.md`.
+
+## The backtest does not use Nautilus
+
+Date: 2026-11-11.
+
+The Nautilus `BacktestEngine` cannot call Shield, and its recorded `order.slippage` was zero on the earlier book walk. Phase 6 therefore prices fills in `backtesting/` and submits them through the existing paper gateway. A buy that spends fraction `f` of the quote reserve has impact `f`. A sell of fraction `g` of the base reserve has impact `g / (1 + g)`. When reserves are missing and one bid and ask level exist, the fill uses that level and refuses a spread wider than the impact cap. When neither exists, the bar is not filled. Candle close stays a mark.
+
+The fee is an explicit schedule. A missing schedule is not a zero fee. A decision can be priced only by an observation inside its delay window. The strategy cannot see a later bar.
+
+Walk-forward chooses parameters on the train window and stores them with `parameters_deployed = false`. Nothing copies those parameters into a running strategy. The formulas and the limits are in `docs/trading/SIMULATION.md`.

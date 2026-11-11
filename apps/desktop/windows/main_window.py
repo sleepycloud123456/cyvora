@@ -21,10 +21,12 @@ from apps.desktop.pages.health_page import HealthPage
 from apps.desktop.pages.placeholder_page import PlaceholderPage
 from apps.desktop.pages.radar_page import RadarPage
 from apps.desktop.pages.shield_page import ShieldPage
+from apps.desktop.pages.simulation_page import SimulationPage
 from apps.desktop.pages.trading_page import TradingPage
 from apps.desktop.services.probe import StatusProbe
 from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
 from apps.desktop.services.shield_worker import ShieldLoadWorker
+from apps.desktop.services.simulation_worker import SimulationLoadWorker
 from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
@@ -48,6 +50,7 @@ class MainWindow(QMainWindow):
         self._watch_worker: WatchWorker | None = None
         self._trading_load: TradingLoadWorker | None = None
         self._shield_load: ShieldLoadWorker | None = None
+        self._simulation_load: SimulationLoadWorker | None = None
         self._cycle_generation = 0
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
@@ -132,6 +135,8 @@ class MainWindow(QMainWindow):
         self.orders = TradingPage("orders")
         self.strategies = TradingPage("strategies")
         self.risk = ShieldPage()
+        self.backtests = SimulationPage("backtests")
+        self.paper = SimulationPage("paper")
         self.scanner.run_button.clicked.connect(self._start_cycle)
         self.scanner.continuous.toggled.connect(self._continuous_toggled)
         self.scanner.watch_add.connect(self._add_watch)
@@ -143,6 +148,8 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(page)
         for trading_page in (self.positions, self.orders, self.strategies, self.risk):
             self.stack.addWidget(trading_page)
+        self.stack.addWidget(self.backtests)
+        self.stack.addWidget(self.paper)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
         return content
@@ -186,6 +193,10 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.risk)
             self._load_shield()
             return
+        if name in {"Backtesting", "Paper Trading"}:
+            self.stack.setCurrentWidget(self.backtests if name == "Backtesting" else self.paper)
+            self._load_simulation()
+            return
         self.placeholder.show_page(name)
         self.stack.setCurrentWidget(self.placeholder)
 
@@ -222,6 +233,7 @@ class MainWindow(QMainWindow):
             self._watch_worker,
             self._trading_load,
             self._shield_load,
+            self._simulation_load,
         ):
             if worker is not None and worker.isRunning():
                 worker.requestInterruption()
@@ -265,6 +277,31 @@ class MainWindow(QMainWindow):
         rows = notices if isinstance(notices, tuple) else ()
         typed = tuple(item for item in rows if isinstance(item, ShieldNotice))
         self.risk.show_snapshot(snapshot, typed)
+
+    def _load_simulation(self) -> None:
+        if not self._settings.database_url:
+            message = "Simulation storage is not configured. No backtest results are shown."
+            self.backtests.show_message(message)
+            self.paper.show_message(message)
+            return
+        if self._simulation_load is not None and self._simulation_load.isRunning():
+            return
+        self._simulation_load = SimulationLoadWorker(self._settings)
+        self._simulation_load.loaded.connect(self._apply_simulation)
+        self._simulation_load.failed.connect(self._simulation_message)
+        self._simulation_load.start()
+
+    def _apply_simulation(self, backtests: str, paper: str) -> None:
+        if self._closing:
+            return
+        self.backtests.show_summary(backtests)
+        self.paper.show_summary(paper)
+
+    def _simulation_message(self, text: str) -> None:
+        if self._closing:
+            return
+        self.backtests.show_message(text)
+        self.paper.show_message(text)
 
     def _trading_message(self, text: str) -> None:
         if self._closing:

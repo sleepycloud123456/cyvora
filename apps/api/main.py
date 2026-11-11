@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from apps.api.errors import unexpected_error_response
 from apps.api.routes.health import router as health_router
 from apps.api.routes.radar import router as radar_router
+from apps.api.routes.simulation import router as simulation_router
 from apps.api.routes.trading import router as trading_router
 from config.settings import APP_NAME, APP_VERSION, Settings, assert_runtime_safe, get_settings
 from database.repositories.trading import restore_strategies
@@ -31,6 +32,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(radar_router)
     app.include_router(trading_router)
+    app.include_router(simulation_router)
     restore_strategies(active)
 
     @app.exception_handler(Exception)

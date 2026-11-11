@@ -25,6 +25,14 @@ from database.models.shield import (
     ShieldNoticeRow,
     ShieldStop,
 )
+from database.models.simulation import (
+    SimulationAssumption,
+    SimulationBar,
+    SimulationDataset,
+    SimulationMember,
+    SimulationRun,
+    SimulationSignalRow,
+)
 from database.models.trading import (
     TradingInstrument,
     TradingOrder,
@@ -49,6 +57,12 @@ __all__ = [
     "ShieldEmergency",
     "ShieldNoticeRow",
     "ShieldStop",
+    "SimulationAssumption",
+    "SimulationBar",
+    "SimulationDataset",
+    "SimulationMember",
+    "SimulationRun",
+    "SimulationSignalRow",
     "SmartMoneyEvent",
     "Token",
     "TokenAnalysis",

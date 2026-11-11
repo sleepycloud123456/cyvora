@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 5 is the Shield risk engine. Do not start Phase 6 (backtesting and the paper broker), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 5 verified.
+Phase 6 is backtesting and the paper broker. Do not start Phase 7 (the remaining terminal pages), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 6 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -47,9 +47,10 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Solana data | `integrations/solana/` | Market-contract adaptation. No RPC and no wallet. |
 | Core | `trading/` | Paper gateway, order state, positions, strategy registry, Nautilus proof. |
 | Shield | `shield/` | Paper risk decisions. Approval cannot enable a live order. |
+| Simulation | `backtesting/` | Historical series, cost and liquidity models, the paper broker, backtests, and walk-forward. |
 | Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
-Do not add signal-strategy or backtest modules until that phase starts. The strategy registry is not a signal generator.
+The strategy registry is not a signal generator. The simulation strategies in `backtesting/strategies.py` run only inside a paper backtest or the paper broker.
 
 ## Workflow
 
@@ -83,6 +84,8 @@ uv run cyvora-desktop
 - `docs/architecture/ARCHITECTURE.md` — what exists now.
 - `docs/architecture/TECHNICAL_DECISIONS.md` — choices and tradeoffs.
 - `docs/security/SECURITY_MODEL.md` — credentials and fail-closed behavior.
-- `docs/ROADMAP.md` — later phases. Phase 5 has not started.
+- `docs/ROADMAP.md` — later phases. Phase 7 has not started.
 - `docs/trading/NAUTILUS_MAPPING.md` — Nautilus 1.231.0 mapping and the offline proof.
+- `docs/trading/SHIELD.md` — paper risk decisions.
+- `docs/trading/SIMULATION.md` — backtests, the paper broker, and the cost models.
 - `docs/integrations/GMGN_API_RESEARCH.md` — verified GMGN behavior and the live shapes.

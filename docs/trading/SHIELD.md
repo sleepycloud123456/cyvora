@@ -44,7 +44,7 @@ A missing mark on an open position is unverified. Equity is not inferred from co
 
 ## Position size
 
-Planned loss per unit is the distance from the expected paper fill to the effective stop, plus the caller-supplied fee per unit. The expected fill is the reference price plus the caller-supplied buy slippage. It is not a pool-impact price.
+Planned loss per unit is the distance from the expected paper fill to the effective stop, plus the fee per unit on the intent. The expected fill is the reference price plus the quote slippage on that intent. When the paper broker built the intent, that slippage is the modeled pool or book distance. It is not a second impact calculated inside Shield.
 
 ```text
 risk budget = equity × risk per trade × confidence
@@ -108,5 +108,5 @@ Revision `0004_shield_risk_engine` stores the book, the UTC baselines, campaigns
 - It does not sign, submit, or simulate a Solana transaction.
 - It does not call GMGN, an RPC, or a wallet.
 - It does not turn a radar score into permission to trade.
-- It does not add a pool-impact, latency, or historical cost model.
-- It does not start Phase 6 backtesting or a paper broker that auto-fills stops.
+- It does not price the fill. The Phase 6 broker does that and then asks Shield again.
+- It does not send a stop by itself. The broker submits the exit as a new paper order.

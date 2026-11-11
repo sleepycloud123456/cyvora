@@ -56,7 +56,7 @@ The event list also contains `OrderInitialized` and `OrderSubmitted` before a fi
 
 Nautilus order statuses include `PARTIALLY_FILLED`, `FILLED`, `CANCELED`, `DENIED`, and `REJECTED`. They do not include CYVORA's `SIMULATION_PENDING`, `CONFIRMATION_PENDING`, or `UNKNOWN`. Those remain CYVORA states. Paper code is not allowed to store `SUBMISSION_PENDING`, `SUBMITTED`, or `CONFIRMATION_PENDING`.
 
-The earlier book-walk case, with GTC and liquidity consumption, filled 5 at the ask and 5 one tick worse. `order.slippage` was `0` for that run. CYVORA does not read `order.slippage` as a fill price. Paper slippage is a quote amount the caller supplies, added to a buy or subtracted from a sell. The paper path does not estimate pool impact. That model belongs to a later phase.
+The earlier book-walk case, with GTC and liquidity consumption, filled 5 at the ask and 5 one tick worse. `order.slippage` was `0` for that run. CYVORA does not read `order.slippage` as a fill price. The Phase 6 paper broker records its own quote slippage. The formula is in `docs/trading/SIMULATION.md`.
 
 Nautilus maker and taker fields are percentages of notional on the instrument. The paper ledger records a caller-supplied quote fee instead. A fee of zero means the caller did not supply one.
 
@@ -70,4 +70,4 @@ Reconciliation compares the stored order with a supplied report. A missing or co
 
 The strategy manager registers a slot, starts it only in paper mode, and routes an explicit intent. Shield evaluates that intent. A stored decision is `paper_approved` or `denied`. A request that claims approval by itself is refused. `paper_approved` allows the local simulator only. The API process sets `RUNNING` strategies back to `STOPPED` when it starts. The desktop shows the stored rows and does not start a strategy.
 
-No signal strategy is implemented. The paper broker and cost models remain later phases. Shield's rules are in `docs/trading/SHIELD.md`.
+No signal strategy is registered by the Nautilus proof. Shield's rules are in `docs/trading/SHIELD.md`. The CYVORA backtest and cost models are in `docs/trading/SIMULATION.md`. They do not call this engine.
