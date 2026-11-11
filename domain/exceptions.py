@@ -17,3 +17,7 @@ class DatabaseNotConfiguredError(CyvoraError):
 
 class DatabaseUnavailableError(CyvoraError):
     """PostgreSQL was configured but could not be reached."""
+
+
+class RadarNotConfigured(CyvoraError):
+    """A radar cycle was requested without the database or the GMGN key."""

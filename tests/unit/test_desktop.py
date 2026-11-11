@@ -42,7 +42,7 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.placeholder)
     assert window.page_title.text() == "Strategies"
     assert "Placeholder" in window.placeholder.body.text()
-    assert "Phase 2" in window.placeholder.body.text()
+    assert "Phase 3" in window.placeholder.body.text()
 
 
 def test_navigation_stays_responsive(qtbot) -> None:  # type: ignore[no-untyped-def]

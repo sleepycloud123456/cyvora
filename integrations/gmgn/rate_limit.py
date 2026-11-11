@@ -8,6 +8,11 @@ from collections.abc import Awaitable, Callable
 from integrations.gmgn.constants import PLAN_BUCKETS
 from integrations.gmgn.errors import GMGNError
 
+# A Unix timestamp near 1.7e9 cannot represent a wait much below 1e-7s.
+# Deficits smaller than this are float dust, not a real missing token.
+_TOKEN_DUST = 1e-4
+_MAX_WAITS = 5
+
 
 class GMGNRateLimiter:
     """Wait until the local bucket can pay a route's weight.
@@ -15,7 +20,8 @@ class GMGNRateLimiter:
     The default plan is free (5 tokens of capacity, refilled at 5 per second).
     A route whose weight is above the capacity can never succeed on that plan,
     which matches GMGN's ``PLAN_UPGRADE_REQUIRED`` behavior. CYVORA does not
-    change the plan by itself.
+    change the plan by itself. A stuck clock stops after a few waits instead
+    of spinning: a large Unix timestamp cannot move by a sub-ulp sleep.
     """
 
     def __init__(
@@ -43,13 +49,20 @@ class GMGNRateLimiter:
                 f"Route weight {weight} exceeds the {self.plan} bucket capacity "
                 f"{self.capacity:g}. CYVORA will not send a request that cannot fit."
             )
+        waits = 0
         while True:
             async with self._guard():
                 self._refill()
-                if self._tokens >= weight:
-                    self._tokens -= weight
+                if self._tokens + _TOKEN_DUST >= weight:
+                    self._tokens = max(0.0, self._tokens - float(weight))
                     return
-                wait = (weight - self._tokens) / self.rate
+                wait = (float(weight) - self._tokens) / self.rate
+            if waits >= _MAX_WAITS:
+                raise GMGNError(
+                    "GMGN rate limiter stopped because its clock did not advance "
+                    "enough to pay the route weight."
+                )
+            waits += 1
             await self._sleeper(wait)
 
     def _guard(self) -> asyncio.Lock:

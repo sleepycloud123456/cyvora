@@ -11,12 +11,14 @@ from integrations.gmgn.client import GMGNClient
 from integrations.gmgn.constants import ALLOWED_ROUTES, FORBIDDEN_ROUTES
 from integrations.gmgn.errors import (
     GMGNAuthorizationRequired,
+    GMGNError,
     GMGNExecutionBlocked,
     GMGNPlanError,
     GMGNRateLimitError,
     GMGNValidationError,
 )
 from integrations.gmgn.execution import GMGNExecutionGateway
+from integrations.gmgn.rate_limit import GMGNRateLimiter
 from integrations.gmgn.read_only import GMGNReadOnly
 from integrations.gmgn.report import describe, public_scalar
 
@@ -281,6 +283,32 @@ async def test_bound_account_preserves_unknown_fields() -> None:
     assert sorted(result.payload) == ["native", "wallets"]
     described = str(describe(result.payload))
     assert WALLET not in described
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_finishes_on_a_large_virtual_clock() -> None:
+    now = [1_700_000_000.0]
+
+    def clock() -> float:
+        return now[0]
+
+    async def sleeper(seconds: float) -> None:
+        now[0] += seconds
+
+    limiter = GMGNRateLimiter("free", clock=clock, sleeper=sleeper)
+    for weight in (3, 2, 1, 1, 1, 2):
+        await limiter.acquire(weight)
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_stops_when_the_clock_does_not_advance() -> None:
+    async def sleeper(_seconds: float) -> None:
+        return None
+
+    limiter = GMGNRateLimiter("free", clock=lambda: 1_700_000_000.0, sleeper=sleeper)
+    await limiter.acquire(5)
+    with pytest.raises(GMGNError, match="clock did not advance"):
+        await limiter.acquire(1)
 
 
 def test_invalid_chain_and_address_are_rejected() -> None:

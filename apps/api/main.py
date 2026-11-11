@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from apps.api.errors import unexpected_error_response
 from apps.api.routes.health import router as health_router
+from apps.api.routes.radar import router as radar_router
 from config.settings import APP_NAME, APP_VERSION, Settings, assert_runtime_safe, get_settings
 from monitoring.health import log_startup
 from monitoring.logging import configure_logging
@@ -22,7 +25,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     log_startup(active)
     app = FastAPI(title=f"{APP_NAME} API", version=APP_VERSION)
     app.state.settings = active
+    app.state.radar_lock = asyncio.Lock()
     app.include_router(health_router)
+    app.include_router(radar_router)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
