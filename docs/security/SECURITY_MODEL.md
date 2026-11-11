@@ -1,6 +1,6 @@
 # Security model
 
-Phase 2 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 3 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
@@ -10,7 +10,7 @@ Phase 2 scope. This document describes controls that exist in the repository tod
 | Database URL | `CYVORA_DATABASE_URL` | Set on this PC. Password is never written to health output or the CYVORA log. |
 | GMGN API key | `GMGN_API_KEY`, or `CYVORA_GMGN_API_KEY` | `SecretStr`. Logs, `repr`, and `model_dump` do not show the value. Health reports `configured` or `not_configured`. |
 | Application status | Memory | Returned by `/health` and shown in the terminal. |
-| Market data | GMGN read-only calls | Not stored. Not shown in the terminal. |
+| Market data | GMGN read-only calls, then PostgreSQL | Stored as radar history and shown from that store. Not invented when the store is empty. |
 | Wallet keys and orders | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
 
 ## Credentials
@@ -32,18 +32,20 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 - Default bind is `127.0.0.1:8787`.
 - `0.0.0.0` and other non-loopback hosts fail validation.
 - CORS is not enabled.
-- `/health` is unauthenticated because it exposes only process status. Any future route that reads configuration, portfolio state, or control actions must require authentication before it is merged.
+- `/health` is unauthenticated because it exposes only process status.
+- `/radar/latest`, `/radar/cycles`, and `/radar/watchlist` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token.
+- The desktop does not send that token. It reads PostgreSQL on the worker threads.
 - Unexpected exceptions return `{"detail": "Internal server error"}`. The exception string is not logged.
 
 ## Database
 
 Alembic will not connect when the URL is unset. Connection failures return a fixed sentence. The SQLAlchemy engine is created with `NullPool` for the check and is disposed immediately. Echo is left off so statements are not printed.
 
-The migration creates `application_metadata` only. It does not insert a secret and does not grant remote access.
+`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. Neither inserts a secret or grants remote access.
 
 ## Audit
 
-Configuration changes, trade intents, and emergency stops are not recorded yet because those actions do not exist. When they do, the audit row must store the action and the result, not a credential.
+Radar cycle saves and watchlist adds or removals insert `audit_events` with an action, a result, and a subject such as `sol:<address>`. The detail is a fixed sentence. It does not store the API key or the database URL. Trade intents and emergency stops are not recorded yet because those actions do not exist.
 
 ## Fail-safe defaults
 
@@ -56,6 +58,6 @@ Configuration changes, trade intents, and emergency stops are not recorded yet b
 
 ## Known gaps
 
-- `/health` has no authentication token. The mitigation is that it has no sensitive body and the socket is loopback.
+- `/health` has no authentication token. The mitigation is that it has no sensitive body and the socket is loopback. Radar routes do require the local token.
 - Log files in `logs/` are local and gitignored. They can still contain messages a developer logs later. The logging rule is to keep secrets out of those messages.
 - PostgreSQL, once installed, must be configured by the operator to listen on localhost and to use a password that is not reused from another service. The repository does not do that install.

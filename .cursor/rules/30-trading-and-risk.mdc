@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Trading and risk
 
-Phase 2 has a read-only GMGN client and no strategy, order, or signer. When those packages are added:
+Phase 3 radar is read-only research. It has no strategy, order, or signer. When those packages are added:
 
 - CYVORA Shield is the only trade-approval authority. Strategies, the desktop, and any AI output cannot bypass it.
 - The default mode remains `READ_ONLY` or `PAPER`. Paper code must not call a swap or a signer.

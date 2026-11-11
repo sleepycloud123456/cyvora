@@ -71,6 +71,18 @@ The HTTP package is `httpx2`, which Starlette already uses. A second HTTP librar
 
 The client sends exist-auth only. Kline `from` and `to` are converted from Unix seconds to milliseconds because `src/commands/market.ts` does that before `OpenApiClient`. Rank responses observed live wrap `data.rank` in a second envelope, and only that route unwraps it. The default rate-limit plan is `free`.
 
+## Radar lives in `intelligence/`
+
+Date: 2026-11-11.
+
+The master tree names `intelligence/token_scanner.py` and a `services/token_scanner` process. Phase 3 keeps one cycle function, `intelligence.cycle.run_radar_cycle`, and calls it from the desktop worker, the API, and `scripts/radar_cycle.py`. A second process was not added. Indicators, liquidity, the schedule, and the store protocol sit beside the modules the tree already named (`token_security`, `smart_money`, `whale_tracker`, `market_regime`, `opportunity`). There is no AI analyst.
+
+The score weights are in `docs/intelligence/SCORING.md`. They are fixed. Adaptive weights were not added, because no validated method exists yet. Historical rows are inserts. A new cycle does not update an old assessment.
+
+`apps/api/routes/radar.py` owns the HTTP models. An unused schema module that did not match those models was not kept. `PostgresRadarRepository` is the only store class. Security categories are `domain.radar.SecurityCategory`. Liquidity uses `observed`, `conflicting`, and `unknown`, which describe the figure, not a second pass/fail gate.
+
+The free-plan limiter stops after five waits when its clock does not move. A float Unix timestamp cannot advance by a sub-ulp sleep, and that stall used to spin inside `acquire`. A server rate-limit response ends the rest of that radar cycle instead of sending the remaining budget.
+
 ## What was left out on purpose
 
-Empty directories for Radar, Shield, strategies, Telegram, backtesting, and cloud deployment are not created. The GMGN package exists because Phase 2 scheduled it. It does not contain a swap or a signer.
+Empty directories for Shield, strategies, Telegram, backtesting, and cloud deployment are not created. The GMGN package does not contain a swap or a signer. Radar does not call `/v1/user/smartmoney`, holder wallet activity, or any trade route.

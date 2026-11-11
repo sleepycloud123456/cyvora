@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 2 is the GMGN read-only client. Do not start Phase 3 (Radar, scoring, historical storage, watchlists), trading strategies, wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 2 verified.
+Phase 3 is the read-only radar. Do not start Phase 4 (NautilusTrader, strategies, execution), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 3 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -43,9 +43,10 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Shared types | `domain/` | Modes, errors, status values |
 | Operations | `monitoring/` | Logging, redaction, and health collection |
 | GMGN | `integrations/gmgn/` | Read-only Agent API client. No signing and no trade calls. |
-| Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN smoke |
+| Radar | `intelligence/` | Discovery, scoring, and the cycle. No orders. |
+| Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
-Do not add empty packages for Radar, Shield, or strategies until that phase starts.
+Do not add empty packages for Shield or strategies until that phase starts.
 
 ## Workflow
 
