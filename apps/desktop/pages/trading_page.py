@@ -4,10 +4,22 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
+from domain.terminal import PositionLine
 from domain.trading import OrderRecord, PositionRecord, TradingSnapshot
 from intelligence.numbers import format_decimal
+from terminal.present import money as shown_money
 
 _COLUMNS = {
     "positions": ("Mint", "Quantity", "Average price", "Cost", "Realized", "Quote"),
@@ -29,6 +41,9 @@ _COLUMNS = {
 class TradingPage(QWidget):
     """Show the stored simulation ledger or an explicit empty state."""
 
+    strategy_start = Signal(str)
+    strategy_stop = Signal(str)
+
     def __init__(self, kind: str) -> None:
         super().__init__()
         self.kind = kind
@@ -43,15 +58,100 @@ class TradingPage(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.verticalHeader().setVisible(False)
+        self.performance = QLabel("")
+        self.performance.setObjectName("Notice")
+        self.performance.setWordWrap(True)
         layout.addWidget(self.notice)
+        self.strategy_id: QLineEdit | None = None
+        if kind == "strategies":
+            controls = QHBoxLayout()
+            self.strategy_id = QLineEdit()
+            self.strategy_id.setPlaceholderText("Registered strategy id")
+            start = QPushButton("Start")
+            start.setObjectName("SecondaryButton")
+            stop = QPushButton("Stop")
+            stop.setObjectName("SecondaryButton")
+            start.clicked.connect(self._emit_start)
+            stop.clicked.connect(self._emit_stop)
+            controls.addWidget(self.strategy_id)
+            controls.addWidget(start)
+            controls.addWidget(stop)
+            layout.addLayout(controls)
+            self.performance.setText(
+                "Start and stop change the paper registry only. Neither submits an order."
+            )
+        layout.addWidget(self.performance)
         layout.addWidget(self.table, stretch=1)
         self.show_message("Trading storage has not been read.")
+
+    def show_performance(self, text: str) -> None:
+        self.performance.setText(text)
+
+    def show_position_lines(self, lines: tuple[PositionLine, ...]) -> None:
+        if self.kind != "positions":
+            return
+        if not lines:
+            self.show_message("No simulated positions are stored.")
+            return
+        self.notice.setText(
+            "Open paper positions with stored marks and Shield plans. "
+            "A mark is not a fill. A planned stop is not a guaranteed exit."
+        )
+        headers = (
+            "Token",
+            "Quantity",
+            "Entry",
+            "Current",
+            "Value",
+            "Unrealized",
+            "Stop",
+            "Trailing",
+            "Take profit",
+            "Holding",
+            "Strategy",
+            "Risk",
+        )
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(list(headers))
+        self.table.setRowCount(len(lines))
+        for row_index, line in enumerate(lines):
+            trailing = "not stored" if line.trailing_active is None else str(line.trailing_active)
+            holding = "not stored" if line.holding_seconds is None else str(line.holding_seconds)
+            values = (
+                line.symbol,
+                shown_money(line.quantity),
+                shown_money(line.entry_price),
+                shown_money(line.current_price),
+                shown_money(line.position_value),
+                shown_money(line.unrealized_pnl),
+                shown_money(line.stop_price),
+                trailing,
+                line.take_profits,
+                holding,
+                line.strategy_id or "not stored",
+                line.risk_level,
+            )
+            for column, value in enumerate(values):
+                self.table.setItem(row_index, column, QTableWidgetItem(value))
+
+    def _emit_start(self) -> None:
+        if self.strategy_id is None:
+            return
+        self.strategy_start.emit(self.strategy_id.text().strip())
+
+    def _emit_stop(self) -> None:
+        if self.strategy_id is None:
+            return
+        self.strategy_stop.emit(self.strategy_id.text().strip())
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
         self.table.setRowCount(0)
 
     def show_snapshot(self, snapshot: TradingSnapshot) -> None:
+        headers = _COLUMNS[self.kind]
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(list(headers))
         if self.kind == "positions":
             rows = [_position_row(position) for position in snapshot.positions]
             empty = "No simulated positions are stored."

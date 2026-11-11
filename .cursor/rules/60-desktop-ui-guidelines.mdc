@@ -8,7 +8,7 @@ alwaysApply: false
 
 - Keep colors in `apps/desktop/themes/cyvora.qss`. Surfaces are navy and near-black. Accents are cyan `#22D3EE` and turquoise `#2DD4BF`.
 - The brand is `CYVORA`. The slogan is `TRADE BEYOND LIMITS.`
-- Unfinished pages must say they are placeholders for the current phase. Do not fill them with invented prices, balances, or win rates.
-- Open Positions, Trade History, and Strategies show stored simulated rows or an empty state.
-- Run network and database checks on `StatusProbe`, not on the UI thread.
-- Do not add live-trading or manual-order controls in Phase 1.
+- A page with no stored rows says so. Do not fill it with invented prices, balances, or win rates.
+- Portfolio, analytics, positions, and strategies show stored paper rows or an empty state. A missing mark stays missing.
+- Run network and database checks on workers, not on the UI thread.
+- Do not add a control that enables live trading or submits an order without Shield.

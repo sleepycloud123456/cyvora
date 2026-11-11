@@ -183,6 +183,7 @@ class RadarPage(QWidget):
                 for row in rows
                 if needle in str(row[1]).lower() or needle in str(row[2]).lower()
             ]
+        self.table.setSortingEnabled(False)
         self.table.setRowCount(len(rows))
         for index, cells in enumerate(rows):
             identity = cells[-1]
@@ -191,6 +192,7 @@ class RadarPage(QWidget):
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, identity)
                 self.table.setItem(index, column, item)
+        self.table.setSortingEnabled(True)
         if not rows:
             self.detail.setPlainText("This view has no stored rows for the latest cycle.")
             self.chart.set_rows([])

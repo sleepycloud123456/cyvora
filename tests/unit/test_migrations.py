@@ -52,6 +52,20 @@ def test_simulation_revision_keeps_parameters_undeployed() -> None:
     assert "parameters_deployed IS false" in source
 
 
+def test_terminal_revision_keeps_live_trading_and_telegram_off() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261111_0006_terminal.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0006_terminal"' in source
+    assert 'down_revision: str | None = "0005_simulation"' in source
+    assert "ck_terminal_profiles_live" in source
+    assert "ck_terminal_preferences_telegram" in source
+    assert "ck_terminal_notifications_live" in source
+    assert "live_trading_enabled IS false" in source
+    assert "telegram_delivery IS false" in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -62,5 +76,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0005_simulation" in result.stdout
+    assert "0006_terminal" in result.stdout
     assert "postgresql" not in result.stdout.lower()

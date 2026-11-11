@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Trading and risk
 
-Phase 6 backtesting and paper execution are simulated. Shield approves or denies every paper order.
+Phase 7 presents the stored paper book. Shield approves or denies every paper order. A terminal profile, a notification, and the local analyst cannot approve one.
 
-- CYVORA Shield is the only trade-approval authority. Strategies, the desktop, the backtest, and any AI output cannot bypass it. `paper_approved` does not enable a live order.
+- CYVORA Shield is the only trade-approval authority. Strategies, the desktop, the backtest, a trading profile, and any analyst output cannot bypass it. `paper_approved` does not enable a live order. No terminal control may enable live trading.
 - The default mode remains `READ_ONLY` or `PAPER`. Paper code must not call a swap or a signer.
 - A submission response is not a fill. A paper `CONFIRMED` state is a simulator result. A backtest fill is not a chain confirmation. Reconcile before retrying an uncertain request.
 - Do not invent GMGN endpoints or Nautilus order types. The 1.231.0 mapping is `docs/trading/NAUTILUS_MAPPING.md`. The cost models are in `docs/trading/SIMULATION.md`.

@@ -15,11 +15,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from apps.desktop.navigation import DASHBOARD, PAGES, SYSTEM_HEALTH
+from apps.desktop.navigation import DASHBOARD, PAGES, SYSTEM_HEALTH, TERMINAL_PAGES
+from apps.desktop.pages.analyst_page import AnalystPage
+from apps.desktop.pages.analytics_page import AnalyticsPage
 from apps.desktop.pages.dashboard_page import DashboardPage
 from apps.desktop.pages.health_page import HealthPage
+from apps.desktop.pages.notifications_page import NotificationsPage
 from apps.desktop.pages.placeholder_page import PlaceholderPage
+from apps.desktop.pages.portfolio_page import PortfolioPage
 from apps.desktop.pages.radar_page import RadarPage
+from apps.desktop.pages.settings_page import SettingsPage
 from apps.desktop.pages.shield_page import ShieldPage
 from apps.desktop.pages.simulation_page import SimulationPage
 from apps.desktop.pages.trading_page import TradingPage
@@ -27,11 +32,13 @@ from apps.desktop.services.probe import StatusProbe
 from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
 from apps.desktop.services.shield_worker import ShieldLoadWorker
 from apps.desktop.services.simulation_worker import SimulationLoadWorker
+from apps.desktop.services.terminal_worker import TerminalActionWorker, TerminalLoadWorker
 from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.shield import ShieldNotice, ShieldSnapshot
 from domain.status import StatusSnapshot
+from domain.terminal import TerminalSnapshot
 from domain.trading import TradingSnapshot
 from intelligence.schedule import next_delay_seconds
 from intelligence.store import CycleSnapshot
@@ -51,6 +58,10 @@ class MainWindow(QMainWindow):
         self._trading_load: TradingLoadWorker | None = None
         self._shield_load: ShieldLoadWorker | None = None
         self._simulation_load: SimulationLoadWorker | None = None
+        self._terminal_load: TerminalLoadWorker | None = None
+        self._terminal_action: TerminalActionWorker | None = None
+        self._status: StatusSnapshot | None = None
+        self._terminal: TerminalSnapshot | None = None
         self._cycle_generation = 0
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
@@ -59,6 +70,7 @@ class MainWindow(QMainWindow):
         if start_probe:
             self.start_probe()
             self._load_radar()
+            self._load_terminal()
         else:
             self.dashboard.set_idle()
             self.health.set_idle()
@@ -137,6 +149,11 @@ class MainWindow(QMainWindow):
         self.risk = ShieldPage()
         self.backtests = SimulationPage("backtests")
         self.paper = SimulationPage("paper")
+        self.portfolio = PortfolioPage()
+        self.analytics = AnalyticsPage()
+        self.analyst = AnalystPage()
+        self.notifications = NotificationsPage()
+        self.settings_page = SettingsPage()
         self.scanner.run_button.clicked.connect(self._start_cycle)
         self.scanner.continuous.toggled.connect(self._continuous_toggled)
         self.scanner.watch_add.connect(self._add_watch)
@@ -150,6 +167,18 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(trading_page)
         self.stack.addWidget(self.backtests)
         self.stack.addWidget(self.paper)
+        self.stack.addWidget(self.portfolio)
+        self.stack.addWidget(self.analytics)
+        self.stack.addWidget(self.analyst)
+        self.stack.addWidget(self.notifications)
+        self.stack.addWidget(self.settings_page)
+        self.strategies.strategy_start.connect(self._start_strategy)
+        self.strategies.strategy_stop.connect(self._stop_strategy)
+        self.settings_page.profile_save.connect(self._save_profile)
+        self.settings_page.profile_activate.connect(self._activate_profile)
+        self.settings_page.preferences_save.connect(self._save_preferences)
+        self.settings_page.pause_requested.connect(self._pause_entries)
+        self.settings_page.resume_requested.connect(self._resume_entries)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
         return content
@@ -165,6 +194,8 @@ class MainWindow(QMainWindow):
         self.page_title.setText(name)
         if name == DASHBOARD:
             self.stack.setCurrentWidget(self.dashboard)
+            self._show_cached_terminal()
+            self._load_terminal()
             return
         if name == SYSTEM_HEALTH:
             self.stack.setCurrentWidget(self.health)
@@ -197,6 +228,18 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.backtests if name == "Backtesting" else self.paper)
             self._load_simulation()
             return
+        terminal_page = {
+            "Portfolio": self.portfolio,
+            "Analytics": self.analytics,
+            "CYVORA Intelligence": self.analyst,
+            "Notifications": self.notifications,
+            "Settings": self.settings_page,
+        }.get(name)
+        if name in TERMINAL_PAGES and terminal_page is not None:
+            self.stack.setCurrentWidget(terminal_page)
+            self._show_cached_terminal()
+            self._load_terminal()
+            return
         self.placeholder.show_page(name)
         self.stack.setCurrentWidget(self.placeholder)
 
@@ -211,8 +254,10 @@ class MainWindow(QMainWindow):
     def apply_snapshot(self, snapshot: object) -> None:
         if self._closing or not isinstance(snapshot, StatusSnapshot):
             return
+        self._status = snapshot
         self.dashboard.apply_snapshot(snapshot)
         self.health.apply_snapshot(snapshot)
+        self._load_terminal()
 
     def _show_probe_failure(self, message: str) -> None:
         if self._closing:
@@ -234,6 +279,8 @@ class MainWindow(QMainWindow):
             self._trading_load,
             self._shield_load,
             self._simulation_load,
+            self._terminal_load,
+            self._terminal_action,
         ):
             if worker is not None and worker.isRunning():
                 worker.requestInterruption()
@@ -406,3 +453,110 @@ class MainWindow(QMainWindow):
         self._watch_worker.finished_ok.connect(self._load_radar)
         self._watch_worker.failed.connect(self.scanner.show_message)
         self._watch_worker.start()
+
+    def _load_terminal(self) -> None:
+        if not self._settings.database_url:
+            self._terminal_message(
+                "Terminal storage is not configured. No paper portfolio is shown."
+            )
+            return
+        if self._terminal_load is not None and self._terminal_load.isRunning():
+            return
+        self._terminal_load = TerminalLoadWorker(self._settings, self._status)
+        self._terminal_load.loaded.connect(self._apply_terminal)
+        self._terminal_load.failed.connect(self._terminal_message)
+        self._terminal_load.start()
+
+    def _apply_terminal(self, snapshot: object) -> None:
+        if self._closing or not isinstance(snapshot, TerminalSnapshot):
+            return
+        self._terminal = snapshot
+        self._show_cached_terminal()
+
+    def _show_cached_terminal(self) -> None:
+        snapshot = self._terminal
+        if snapshot is None:
+            return
+        self.dashboard.show_portfolio(snapshot.portfolio)
+        self.portfolio.show_portfolio(snapshot.portfolio)
+        self.analytics.show_analytics(snapshot.analytics)
+        self.analyst.show_report(snapshot.analyst)
+        self.notifications.show_notifications(snapshot.notifications)
+        self.settings_page.show_snapshot(snapshot)
+        self.positions.show_position_lines(snapshot.portfolio.positions)
+        self.strategies.show_performance(
+            "Closed paper campaigns are listed on Analytics. "
+            "Start and stop change the paper registry only. Neither submits an order."
+        )
+        finished = "No radar cycle is stored."
+        if snapshot.analyst.findings:
+            observed = next(
+                (item.observed_at for item in snapshot.analyst.findings if item.observed_at),
+                None,
+            )
+            if observed:
+                finished = f"Latest stored evidence time: {observed}."
+        self.health.show_freshness(finished)
+
+    def _terminal_message(self, text: str) -> None:
+        if self._closing:
+            return
+        self.dashboard.show_portfolio_message(text)
+        pages = (
+            self.portfolio,
+            self.analytics,
+            self.analyst,
+            self.notifications,
+            self.settings_page,
+        )
+        for page in pages:
+            page.show_message(text)
+        self.health.show_freshness(text)
+
+    def _terminal_action_for(self, action: str, payload: object) -> None:
+        if not self._settings.database_url:
+            self._terminal_message(
+                "Terminal storage is not configured. No paper portfolio is shown."
+            )
+            return
+        if self._terminal_action is not None and self._terminal_action.isRunning():
+            return
+        self._terminal_action = TerminalActionWorker(self._settings, action, payload)
+        self._terminal_action.finished_ok.connect(self._terminal_action_finished)
+        self._terminal_action.failed.connect(self.settings_page.show_message)
+        self._terminal_action.start()
+
+    def _terminal_action_finished(self, message: str) -> None:
+        if self._closing:
+            return
+        self.settings_page.show_message(message)
+        self.strategies.show_message(message)
+        self._load_terminal()
+        self._load_trading()
+
+    def _start_strategy(self, strategy_id: str) -> None:
+        self._terminal_action_for("start", strategy_id)
+
+    def _stop_strategy(self, strategy_id: str) -> None:
+        self._terminal_action_for("stop", strategy_id)
+
+    def _activate_profile(self, profile_id: str) -> None:
+        self._terminal_action_for("activate", profile_id)
+
+    def _save_preferences(self, preferences: object) -> None:
+        self._terminal_action_for("preferences", preferences)
+
+    def _pause_entries(self) -> None:
+        self._terminal_action_for("pause", None)
+
+    def _resume_entries(self) -> None:
+        self._terminal_action_for("resume", None)
+
+    def _save_profile(self, profile_id: str, name: str, strategies: object) -> None:
+        if not isinstance(strategies, tuple):
+            self.settings_page.show_message("A profile strategy list is invalid.")
+            return
+        self._terminal_action_for(
+            "profile",
+            (profile_id, name, strategies, self.settings_page.profile_threshold.text()),
+        )

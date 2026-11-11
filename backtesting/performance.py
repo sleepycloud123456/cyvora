@@ -86,6 +86,20 @@ def measure(
     )
 
 
+def peak_drawdown(curve: tuple[Decimal, ...]) -> Decimal | None:
+    """Largest drop from a running peak. An empty curve stays empty."""
+
+    return _drawdown(curve)
+
+
+def risk_ratios(
+    returns: tuple[Decimal, ...],
+) -> tuple[Decimal | None, str | None, Decimal | None, str | None]:
+    """Sharpe and Sortino. Fewer than 30 returns are not treated as meaningful."""
+
+    return _ratios(returns)
+
+
 def _drawdown(curve: tuple[Decimal, ...]) -> Decimal | None:
     if not curve:
         return None

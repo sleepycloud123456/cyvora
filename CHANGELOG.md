@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-11-11 — Phase 7
+
+- Completed the terminal pages that were still placeholders: Portfolio, Analytics, CYVORA Intelligence, Notifications, and Settings. The dashboard reads the stored paper book.
+- Portfolio figures use Shield baselines and stored radar marks. A missing mark is not zero. Wallet SOL and USD stay unavailable.
+- Added a local stored-evidence analyst. Findings are advisory and cannot authorize an order. No external model is called.
+- Stored local notifications with categories, a quiet period, and dedup. Telegram delivery stays off because no bot token is loaded.
+- Added paper profiles and Shield pause/resume. A profile threshold is not applied. No control can enable live trading.
+- Stored the new rows in PostgreSQL revision `0006_terminal`.
+
 ## 0.6.0 — 2026-11-11 — Phase 6
 
 - Added a simulation-only backtest, walk-forward runner, and strategy comparison. Reports record research limits and do not deploy parameters.
