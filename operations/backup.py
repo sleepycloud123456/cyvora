@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -17,18 +16,24 @@ _LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 Runner = Callable[[list[str], Mapping[str, str], Path], int]
 
 
-def find_pg_dump() -> Path | None:
-    """Return a local pg_dump binary, or None when it is not installed."""
+_TRUSTED_ROOTS = (
+    Path(r"C:\Program Files\PostgreSQL"),
+    Path(r"C:\Program Files (x86)\PostgreSQL"),
+)
 
-    found = shutil.which("pg_dump")
-    if found:
-        return Path(found)
-    for candidate in (
-        Path(r"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe"),
-        Path(r"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe"),
-    ):
-        if candidate.is_file():
-            return candidate
+
+def find_pg_dump() -> Path | None:
+    """Return pg_dump from a Program Files PostgreSQL install.
+
+    A binary found earlier on PATH is not used. The dump process receives
+    the database password, so a replaced executable would receive it too.
+    """
+
+    for version in ("17", "16", "15"):
+        for root in _TRUSTED_ROOTS:
+            candidate = root / version / "bin" / "pg_dump.exe"
+            if candidate.is_file():
+                return candidate
     return None
 
 
@@ -87,7 +92,7 @@ def run_backup(
         "--file",
         str(destination),
     ]
-    env = _child_env(host, port, user, password, database)
+    env = _child_env(host, port, user, password, database, binary)
     execute = runner or _subprocess
     try:
         code = execute(argv, env, destination)
@@ -140,19 +145,27 @@ def _target(url: str) -> tuple[str, int, str, str | None, str] | None:
 
 
 def _child_env(
-    host: str, port: int, user: str, password: str | None, database: str
+    host: str,
+    port: int,
+    user: str,
+    password: str | None,
+    database: str,
+    binary: Path,
 ) -> dict[str, str]:
-    """Pass pg_dump the connection fields and the Windows process paths.
+    """Pass pg_dump the connection fields and a narrow process path.
 
     The parent environment is not copied, so unrelated secrets are not given
-    to the dump process.
+    to the dump process. PATH is the binary's directory plus System32, not
+    the operator PATH.
     """
 
+    system_root = os.environ.get("SYSTEMROOT", r"C:\Windows")
     env = {
         key: os.environ[key]
-        for key in ("SYSTEMROOT", "SystemRoot", "PATH", "PATHEXT", "COMSPEC", "WINDIR")
+        for key in ("SYSTEMROOT", "SystemRoot", "PATHEXT", "COMSPEC", "WINDIR")
         if key in os.environ
     }
+    env["PATH"] = str(binary.parent) + os.pathsep + str(Path(system_root) / "System32")
     env["PGHOST"] = host
     env["PGPORT"] = str(port)
     env["PGUSER"] = user

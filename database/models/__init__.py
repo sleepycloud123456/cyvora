@@ -23,6 +23,7 @@ from database.models.radar import (
     WatchlistItem,
     WhaleEvent,
 )
+from database.models.readiness import ReadinessControl, ReadinessEvent
 from database.models.shield import (
     ShieldCampaign,
     ShieldControl,
@@ -62,6 +63,8 @@ __all__ = [
     "OperationWorker",
     "LiquiditySnapshot",
     "RadarCycle",
+    "ReadinessControl",
+    "ReadinessEvent",
     "SecurityAssessmentRow",
     "ShieldCampaign",
     "ShieldControl",

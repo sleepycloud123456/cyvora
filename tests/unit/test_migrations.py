@@ -81,6 +81,19 @@ def test_operations_revision_keeps_wallet_and_cloud_locked() -> None:
     assert "token" not in source.lower()
 
 
+def test_readiness_revision_keeps_live_trading_unauthorized() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261111_0008_readiness.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0008_readiness"' in source
+    assert 'down_revision: str | None = "0007_operations"' in source
+    assert "ck_readiness_controls_live" in source
+    assert "ck_readiness_controls_authorization" in source
+    assert "not_authorized" in source
+    assert "live_authorized" not in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -91,5 +104,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0007_operations" in result.stdout
+    assert "0008_readiness" in result.stdout
     assert "postgresql" not in result.stdout.lower()

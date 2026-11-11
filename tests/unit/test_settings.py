@@ -79,6 +79,22 @@ def test_private_key_variable_is_ignored(tmp_path: Path) -> None:
     assert "not-a-real-key" not in repr(settings)
 
 
+def test_database_url_is_absent_from_repr_and_dump() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://cyvora:super-secret-pass@127.0.0.1:5432/cyvora",
+    )
+    assert "super-secret-pass" not in repr(settings)
+    assert settings.model_dump()["database_url"] == "configured"
+    assert settings.database_url is not None
+    assert "super-secret-pass" in settings.database_url
+
+
+def test_parent_log_directory_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="cannot contain"):
+        Settings(_env_file=None, log_dir=Path("logs") / ".." / "outside")
+
+
 def test_unknown_log_level_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, log_level="verbose")

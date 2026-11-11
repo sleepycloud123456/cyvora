@@ -16,10 +16,12 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx2
 
 _SKIPPED_HEADERS = frozenset({"host", "content-length", "transfer-encoding", "cookie"})
+_GMGN_HOST = "openapi.gmgn.ai"
 
 
 class CurlTransport(httpx2.AsyncBaseTransport):
@@ -33,6 +35,7 @@ class CurlTransport(httpx2.AsyncBaseTransport):
         return await asyncio.to_thread(self._perform, request)
 
     def _perform(self, request: httpx2.Request) -> httpx2.Response:
+        _require_gmgn_target(str(request.url))
         if not Path(self._executable).is_file():
             raise httpx2.ConnectError("The GMGN curl executable is not available.")
         timeout = _timeout_seconds(request)
@@ -131,10 +134,31 @@ def _config(
     return "\n".join(lines) + "\n"
 
 
+def _require_gmgn_target(url: str) -> None:
+    """Send the API key only to the documented GMGN host.
+
+    Curl config injection is a second check. This one refuses another host
+    before the config file is written.
+    """
+
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or host != _GMGN_HOST or parts.username or parts.password:
+        raise httpx2.TransportError("Refusing a curl request outside the GMGN API host.")
+
+
 def _quote(value: str) -> str:
-    if any(character in value for character in ('"', "\n", "\r")):
+    """Quote one curl config value.
+
+    Curl treats a backslash inside double quotes as an escape. A trailing
+    backslash would consume the closing quote and let the rest of the file
+    become new options. Backslashes are escaped, and quotes or line breaks
+    are refused.
+    """
+
+    if any(character in value for character in ('"', "\n", "\r", "\x00")):
         raise httpx2.TransportError("Refusing a curl value that contains a quote or a newline.")
-    return '"' + value + '"'
+    return '"' + value.replace("\\", "\\\\") + '"'
 
 
 def _parse_status(raw: bytes) -> tuple[int, list[tuple[str, str]]]:

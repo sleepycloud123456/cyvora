@@ -19,7 +19,9 @@ def test_health_reports_unconfigured_database(tmp_path: Path) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["app_name"] == APP_NAME
-    assert body["phase"] == "8"
+    assert body["phase"] == "9"
+    assert body["kill_switch"]["state"] == "not_configured"
+    assert body["live_trading_enabled"] is False
     assert body["execution_mode"] == "READ_ONLY"
     assert body["live_trading_enabled"] is False
     assert body["status"] == "ok"
@@ -60,8 +62,11 @@ def test_health_degrades_when_database_is_unreachable(tmp_path: Path) -> None:
 
 def test_unknown_route_is_not_rewritten_as_internal_error(tmp_path: Path) -> None:
     app = create_app(Settings(_env_file=None, log_dir=tmp_path))
-    response = TestClient(app).get("/not-a-route")
+    client = TestClient(app)
+    response = client.get("/not-a-route")
     assert response.status_code == 404
+    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
 
 
 def test_unexpected_error_response_hides_exception_text() -> None:

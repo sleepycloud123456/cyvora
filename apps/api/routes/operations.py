@@ -16,6 +16,7 @@ from operations.diagnostics import export_diagnostics
 from operations.recovery import startup_recovery
 from operations.retention import plan_retention
 from operations.startup import execute
+from readiness.report import build_report
 
 router = APIRouter(dependencies=[Depends(require_local_token)], tags=["operations"])
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
@@ -31,6 +32,12 @@ class BackupBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     execute: bool = False
+
+
+class ConfirmationBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    confirm: str = Field(min_length=1, max_length=32)
 
 
 @router.get("/operations/status")
@@ -123,3 +130,47 @@ def backup(body: BackupBody, settings: SettingsDep) -> dict[str, object]:
                 status_code=503, detail="The dump was created but was not recorded."
             ) from exc
     return report.public_mapping()
+
+
+@router.get("/operations/readiness")
+def readiness(settings: SettingsDep) -> dict[str, object]:
+    """Return the closed live-trading gate. This route does not authorize trading."""
+
+    return build_report(settings)
+
+
+@router.post("/operations/kill-switch/engage")
+def engage_kill_switch(body: ConfirmationBody, settings: SettingsDep) -> dict[str, object]:
+    """Engage the operator latch. No order is submitted."""
+
+    return _switch(settings, "engage", body.confirm)
+
+
+@router.post("/operations/kill-switch/release")
+def release_kill_switch(body: ConfirmationBody, settings: SettingsDep) -> dict[str, object]:
+    """Release the operator latch after the confirmation word. Live trading stays off."""
+
+    return _switch(settings, "release", body.confirm)
+
+
+def _switch(settings: Settings, action: str, confirmation: str) -> dict[str, object]:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="The kill switch is not stored.")
+    from datetime import UTC, datetime
+
+    from database.repositories.readiness import ReadinessRepository
+    from domain.exceptions import TradingValidationError
+
+    repository = ReadinessRepository(settings)
+    try:
+        if action == "engage":
+            state = repository.engage(confirmation, datetime.now(UTC))
+        else:
+            state = repository.release(confirmation, datetime.now(UTC))
+    except TradingValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="The kill switch could not be stored.") from exc
+    payload = state.public_mapping()
+    payload["order_submitted"] = False
+    return payload

@@ -18,6 +18,7 @@ from operations.auth_audit import AuthGate
 
 logger = logging.getLogger("cyvora.auth")
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+_MAX_BEARER_CHARS = 4096
 
 
 def require_local_token(request: Request, settings: SettingsDep) -> None:
@@ -42,7 +43,7 @@ def require_local_token(request: Request, settings: SettingsDep) -> None:
 
 
 def _matches(provided: str, settings: Settings) -> bool:
-    if settings.api_token is None:
+    if settings.api_token is None or len(provided) > _MAX_BEARER_CHARS:
         return False
     expected = settings.api_token.get_secret_value()
     return hmac.compare_digest(

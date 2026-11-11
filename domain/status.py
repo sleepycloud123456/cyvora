@@ -51,3 +51,9 @@ class StatusSnapshot:
             "No websocket server is configured.",
         )
     )
+    kill_switch: ComponentStatus = field(
+        default_factory=lambda: ComponentStatus(
+            "not_configured",
+            "The kill switch has not been read. Live trading stays locked.",
+        )
+    )

@@ -11,6 +11,7 @@ from config.settings import APP_NAME, APP_VERSION, PHASE, Settings
 from database.connection import check_database
 from domain.status import ComponentStatus, StatusSnapshot
 from operations.status import operation_components
+from readiness.guard import kill_switch_component
 
 logger = logging.getLogger("cyvora.health")
 
@@ -57,6 +58,7 @@ def collect_status(settings: Settings, *, probe_backend: bool) -> StatusSnapshot
         market_data=market_data,
         queue=queue,
         websocket=websocket,
+        kill_switch=kill_switch_component(settings),
     )
 
 

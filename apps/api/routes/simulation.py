@@ -38,6 +38,7 @@ from domain.simulation import (
     UniverseMember,
 )
 from domain.trading import OrderSide, SolanaInstrument
+from readiness.guard import operator_orders_blocked
 from trading.instruments import require_mint
 
 router = APIRouter(dependencies=[Depends(require_local_token)], tags=["simulation"])
@@ -416,6 +417,7 @@ def submit_modeled_paper(
             LatencyModel(body.delay_seconds, body.max_quote_age_seconds),
             participation=participation,
             impact_cap=impact,
+            entries_blocked=lambda: operator_orders_blocked(settings),
         )
         result = broker.execute(
             BrokerCommand(
