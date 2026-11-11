@@ -46,10 +46,12 @@ class HealthPage(QWidget):
         self.market_data_card = StatusCard("Market data")
         self.queue_card = StatusCard("Queue")
         self.connection_card = StatusCard("Connection")
+        self.kill_switch_card = StatusCard("Kill switch")
         second.addWidget(self.workers_card)
         second.addWidget(self.market_data_card)
         second.addWidget(self.queue_card)
         second.addWidget(self.connection_card)
+        second.addWidget(self.kill_switch_card)
         self.reconnect = QLabel(
             "The desktop probes the loopback API again every 15 seconds. It does not start the API."
         )
@@ -82,6 +84,7 @@ class HealthPage(QWidget):
         self.gmgn_card.set_status("unknown", message)
         self.workers_card.set_status("unknown", message)
         self.market_data_card.set_status("unknown", message)
+        self.kill_switch_card.set_status("unknown", message)
 
     def note_reconnect(self) -> None:
         self.reconnect.setText("Probing the loopback API again. This window does not start it.")
@@ -95,6 +98,7 @@ class HealthPage(QWidget):
         self.market_data_card.apply(snapshot.market_data)
         self.queue_card.apply(snapshot.queue)
         self.connection_card.apply(snapshot.websocket)
+        self.kill_switch_card.apply(snapshot.kill_switch)
         if snapshot.backend.state == "offline":
             self.reconnect.setText(
                 "The API is offline. The desktop will probe loopback again. "
@@ -116,4 +120,5 @@ class HealthPage(QWidget):
             self.market_data_card,
             self.queue_card,
             self.connection_card,
+            self.kill_switch_card,
         )

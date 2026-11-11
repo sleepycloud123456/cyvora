@@ -10,6 +10,7 @@ from pydantic import (
     AliasChoices,
     Field,
     SecretStr,
+    ValidationError,
     field_serializer,
     field_validator,
     model_validator,
@@ -20,8 +21,8 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.8.0"
-PHASE = "8"
+APP_VERSION = "0.9.0"
+PHASE = "9"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -46,7 +47,7 @@ class Settings(BaseSettings):
     execution_mode: ExecutionMode = ExecutionMode.READ_ONLY
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8787, ge=1, le=65535)
-    database_url: str | None = None
+    database_url: str | None = Field(default=None, repr=False)
     log_level: str = "INFO"
     log_dir: Path = Path("logs")
     gmgn_api_key: SecretStr | None = Field(
@@ -151,6 +152,13 @@ class Settings(BaseSettings):
             return None
         return "configured"
 
+    @field_serializer("database_url")
+    @classmethod
+    def serialize_database_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return "configured"
+
     @field_validator("api_token", mode="before")
     @classmethod
     def blank_api_token_is_unset(cls, value: object) -> object:
@@ -196,6 +204,13 @@ class Settings(BaseSettings):
             raise ValueError("Backup and diagnostic directories must stay inside the workspace.")
         return value
 
+    @field_validator("log_dir")
+    @classmethod
+    def reject_parent_log_dir(cls, value: Path) -> Path:
+        if ".." in value.parts:
+            raise ValueError("CYVORA_LOG_DIR cannot contain '..'.")
+        return value
+
     @field_validator("log_level")
     @classmethod
     def require_known_log_level(cls, value: str) -> str:
@@ -207,9 +222,17 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return the process settings, cached for the lifetime of the process."""
+    """Return the process settings, cached for the lifetime of the process.
 
-    return Settings()
+    A validation failure is re-raised without the rejected input. Pydantic's
+    own error object can contain a database URL.
+    """
+
+    try:
+        return Settings()
+    except ValidationError as exc:
+        messages = "; ".join(str(item.get("msg", "invalid setting")) for item in exc.errors())
+        raise ConfigurationError(f"CYVORA settings are invalid. {messages}") from None
 
 
 def assert_runtime_safe(settings: Settings) -> None:

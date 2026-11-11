@@ -47,6 +47,8 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     window.navigation.setCurrentItem(settings_matches[0])
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.settings_page)
     assert "Live trading is locked" in window.settings_page.live_lock.text()
+    assert window.settings_page.kill_engage.text() == "Engage kill switch"
+    assert window.settings_page.kill_release.text() == "Release kill switch"
     assert window.settings_page.telegram.isEnabled() is False
     assert window.settings_page.telegram.isChecked() is False
     window.placeholder.show_page("Unknown")

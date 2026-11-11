@@ -1,6 +1,6 @@
 # Architecture
 
-Phase 8 runs a local supervisor beside the terminal. A score does not authorize an order. A Shield paper approval is not a chain transaction. The local analyst cannot approve one either. Recovery does not read a wallet.
+Phase 9 keeps a closed live-trading gate beside the local supervisor. A score does not authorize an order. A Shield paper approval is not a chain transaction. The local analyst cannot approve one either, and it cannot release the kill switch. Recovery does not read a wallet.
 
 ## What runs today
 
@@ -89,10 +89,12 @@ Revision `0006_terminal` adds paper profiles, notification preferences, and loca
 
 Revision `0007_operations` adds worker, heartbeat, recovery, backup, and authentication rows. Recovery rows constrain wallet reconciliation to `not_authorized` and `wallet_assumed_flat` to false. Worker rows constrain `cloud_deployed` and `live_trading_enabled` to false.
 
+Revision `0008_readiness` adds the kill-switch row and its audit. The control row constrains `live_trading_enabled` to false and `authorization_state` to `not_authorized`. The audit row has no confirmation-word column.
+
 ## Boundaries
 
 1. CYVORA Terminal remains the Windows control surface.
-2. CYVORA API remains a loopback service. `/radar`, `/trading`, and `/trading/simulation` require the local bearer token. `/health` stays unauthenticated.
+2. CYVORA API remains a loopback service. `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require the local bearer token. `/health` stays unauthenticated. OpenAPI docs are disabled. `/operations/readiness` reports the closed gate.
 3. CYVORA Core owns the strategy registry and simulated execution. NautilusTrader 1.231.0 stays behind `trading/nautilus`. Solana swaps are not represented as exchange order types.
 4. `integrations.gmgn` is the market-data boundary. Radar calls that client. It does not add routes. Radar does not register a strategy.
 5. PostgreSQL remains the system of record.
@@ -105,7 +107,7 @@ Signal strategies that trade live are not in the repository. The simulation stra
 
 A paper order is created, validated, marked simulation-pending, marked simulation-passed, and then confirmed or failed. Confirmation is the local simulator's result. Reconciliation can move that row to `UNKNOWN` when a report is missing or disagrees. It does not change the position and it does not send another order.
 
-The API sets every `RUNNING` strategy to `STOPPED` when the process starts. Starting a strategy and submitting an intent both require `PAPER`. Shield then stores `paper_approved` or `denied`. A paper approval does not change the live-execution refusal.
+The API sets every `RUNNING` strategy to `STOPPED` when the process starts. Starting a strategy and submitting an intent both require `PAPER`. Shield then stores `paper_approved` or `denied`. A paper approval does not change the live-execution refusal. An engaged kill switch, or a kill-switch row that cannot be read, refuses a new operator paper order before that evaluation. An isolated backtest does not consult the switch.
 
 ## Security boundary
 

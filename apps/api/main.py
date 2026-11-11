@@ -30,7 +30,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     assert_runtime_safe(active)
     configure_logging(active)
     log_startup(active)
-    app = FastAPI(title=f"{APP_NAME} API", version=APP_VERSION)
+    app = FastAPI(
+        title=f"{APP_NAME} API",
+        version=APP_VERSION,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     app.state.settings = active
     app.state.radar_lock = asyncio.Lock()
     app.state.auth_gate = AuthGate(limit=active.auth_failure_limit)

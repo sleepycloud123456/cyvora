@@ -99,10 +99,13 @@ class PaperExecutionGateway:
         mode: ExecutionMode,
         store: TradingStore,
         clock: Callable[[], datetime],
+        *,
+        entries_blocked: Callable[[], bool] | None = None,
     ) -> None:
         self._mode = mode
         self._store = store
         self._clock = clock
+        self._entries_blocked = entries_blocked or (lambda: False)
 
     def submit(self, request: PaperOrderRequest) -> OrderRecord:
         self._require_paper()
@@ -168,6 +171,11 @@ class PaperExecutionGateway:
     ) -> PaperCommit:
         if context.existing is not None:
             return PaperCommit(context.existing, (), None, None, True)
+        if self._entries_blocked():
+            raise TradingDisabled(
+                "The kill switch is blocking new operator paper orders. "
+                "No order was stored. Live trading stays disabled."
+            )
         now = self._clock()
         intent = request.risk or _bare_intent(request, instrument)
         evaluation = evaluate(

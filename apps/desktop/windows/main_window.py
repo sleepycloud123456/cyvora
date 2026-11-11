@@ -182,6 +182,8 @@ class MainWindow(QMainWindow):
         self.settings_page.preferences_save.connect(self._save_preferences)
         self.settings_page.pause_requested.connect(self._pause_entries)
         self.settings_page.resume_requested.connect(self._resume_entries)
+        self.settings_page.kill_engage_requested.connect(self._engage_kill_switch)
+        self.settings_page.kill_release_requested.connect(self._release_kill_switch)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
         return content
@@ -574,6 +576,12 @@ class MainWindow(QMainWindow):
 
     def _resume_entries(self) -> None:
         self._terminal_action_for("resume", None)
+
+    def _engage_kill_switch(self) -> None:
+        self._terminal_action_for("kill-engage", None)
+
+    def _release_kill_switch(self) -> None:
+        self._terminal_action_for("kill-release", None)
 
     def _save_profile(self, profile_id: str, name: str, strategies: object) -> None:
         if not isinstance(strategies, tuple):

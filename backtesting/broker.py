@@ -89,6 +89,7 @@ class PaperBroker:
         *,
         participation: Decimal,
         impact_cap: Decimal,
+        entries_blocked: Callable[[], bool] | None = None,
     ) -> None:
         self._mode = mode
         self._store = store
@@ -99,7 +100,7 @@ class PaperBroker:
             raise TradingValidationError("Participation and impact cap must be between 0 and 1.")
         self._participation = participation
         self._impact_cap = impact_cap
-        gateway = PaperExecutionGateway(mode, store, clock)
+        gateway = PaperExecutionGateway(mode, store, clock, entries_blocked=entries_blocked)
         self._manager = StrategyManager(mode, store, gateway, clock)
 
     def execute(self, command: BrokerCommand) -> BrokerResult:

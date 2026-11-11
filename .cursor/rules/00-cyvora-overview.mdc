@@ -13,7 +13,7 @@ Boundaries already in the code:
 
 - The PySide6 desktop presents status and stored radar, paper, Shield, simulation, and terminal rows. Network, database, and GMGN calls stay off the UI thread. The desktop probes loopback health again. It does not start the API or a worker.
 - Radar scores do not authorize an order. A paper fill is not a chain confirmation. Unknown security data is not safe.
-- The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
+- The API binds to loopback only and starts in `READ_ONLY` or `PAPER`. The live-trading gate stays closed. The kill switch can block new operator paper orders and cannot enable live trading.
 - PostgreSQL is the application database. Do not silently substitute SQLite.
 - NautilusTrader 1.231.0 is installed. Do not add a 2.x pre-release or mix its examples with 1.231.0.
 - `integrations/gmgn` is read-only. Do not add a swap, a signature, or a call that is absent from `docs/integrations/GMGN_API_RESEARCH.md`.

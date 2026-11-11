@@ -9,6 +9,7 @@ from pathlib import Path
 from config.settings import APP_NAME, APP_VERSION, PHASE, Settings
 from domain.operations import RecoveryReport, RunReport
 from monitoring.redaction import redact_text, secret_values
+from readiness.guard import kill_switch_component
 
 
 def build_document(
@@ -30,6 +31,9 @@ def build_document(
         "environment": settings.environment,
         "execution_mode": settings.execution_mode.value,
         "live_trading_enabled": False,
+        "live_authorization": "not_authorized",
+        "kill_switch": kill_switch_component(settings).state,
+        "ready_for_live": False,
         "cloud_deployed": False,
         "wallet_reconciliation": "not_authorized",
         "wallet_assumed_flat": False,

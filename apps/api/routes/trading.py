@@ -41,6 +41,7 @@ from domain.trading import (
     StrategyRecord,
     TradingSnapshot,
 )
+from readiness.guard import operator_orders_blocked
 from shield.engine import record_emergency, record_trail, recover, replace_limits
 from shield.limits import validate_limits
 from trading.execution.gateway import (
@@ -281,7 +282,12 @@ def _services(
 ) -> tuple[StrategyManager, PaperExecutionGateway]:
     store = _store(request, settings)
     clock = _clock(request)
-    gateway = PaperExecutionGateway(settings.execution_mode, store, clock)
+    gateway = PaperExecutionGateway(
+        settings.execution_mode,
+        store,
+        clock,
+        entries_blocked=lambda: operator_orders_blocked(settings),
+    )
     return StrategyManager(settings.execution_mode, store, gateway, clock), gateway
 
 

@@ -1,6 +1,6 @@
 # Security model
 
-Phase 8 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 9 scope. This document describes controls that exist in the repository today. The readiness report names chain controls that are still absent. It does not implement them.
 
 ## Data the process can see
 
@@ -26,7 +26,7 @@ Agents must not print the environment and must not open `.env`.
 
 ## Execution authorization
 
-`ExecutionMode` contains `READ_ONLY` and `PAPER` only. The settings validator rejects `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` before the process starts. `assert_runtime_safe` repeats that check. `live_trading_enabled` in the health payload is the constant `false`.
+`ExecutionMode` contains `READ_ONLY` and `PAPER` only. The settings validator rejects `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` before the process starts. `assert_runtime_safe` repeats that check. `live_trading_enabled` in the health payload is the constant `false`. `readiness.live_gate` returns `authorized=False` and cannot be given a grant flag. Readiness rows constrain `authorization_state` to `not_authorized`.
 
 There is no signer and no transaction builder. `GMGNExecutionGateway.submit` raises `GMGNExecutionBlocked` and does not open a socket. `refuse_live_execution` raises before a store write. `GET /v1/user/wallet_holdings` raises before HTTP because the official client signs it.
 
@@ -37,7 +37,7 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 - Default bind is `127.0.0.1:8787`.
 - `0.0.0.0` and other non-loopback hosts fail validation.
 - CORS is not enabled.
-- `/health` is unauthenticated because it exposes only process status. Worker, cycle, queue, and websocket words were added in Phase 8. There is still no websocket server.
+- `/health` is unauthenticated because it exposes only process status. Worker, cycle, queue, websocket, and kill-switch words are included. There is still no websocket server. `/docs`, `/redoc`, and `/openapi.json` are disabled.
 - `/radar`, `/trading`, `/terminal`, and `/operations` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token. Repeated failures in the process return HTTP 429. `auth_events` stores the result word, not the token.
 - The desktop does not send that token. It reads PostgreSQL on the worker threads and probes loopback health every 15 seconds. It does not start the API.
 - Unexpected exceptions return `{"detail": "Internal server error"}`. The exception string is not logged.
@@ -61,8 +61,17 @@ Radar cycle saves and watchlist adds or removals insert `audit_events` with an a
 - No spending.
 - A configured database that cannot be reached makes `/health` return HTTP 503. The desktop keeps running and shows `unreachable`.
 
+## Kill switch
+
+`readiness_controls` stores one latch. Engaging it refuses new operator paper orders. It does not submit a sell, sign, or change Shield limits. Releasing it requires the confirmation word `RELEASE` from the desktop dialog or from an authenticated request. The word is not stored. Resume of paper entries does not clear the latch. If the row cannot be read, new operator paper orders stay blocked. An isolated backtest does not consult the latch.
+
+The database URL is omitted from `repr(Settings)` and from `model_dump`. `get_settings` does not re-raise the pydantic error object, because that object can contain the URL. `pg_dump` is accepted only from a Program Files PostgreSQL directory. The GMGN curl transport escapes backslashes and refuses a request whose host is not `openapi.gmgn.ai`.
+
 ## Known gaps
 
-- `/health` has no authentication token. The mitigation is that it has no sensitive body and the socket is loopback. Radar routes do require the local token.
+- `/health` has no authentication token. The mitigation is that it has no sensitive body and the socket is loopback. Radar, trading, terminal, and operations routes require the local token.
+- The authentication failure count lives in the process. A restart clears it.
+- The GitHub repository is public. `.env` is not in history. Making the repository private is an operator decision.
+- `fsspec` 2026.2.0 is pinned by NautilusTrader 1.231.0 and has PYSEC-2026-4217. CYVORA does not call the affected API. See `docs/security/SECURITY_REVIEW.md`.
 - Log files in `logs/` are local and gitignored. They can still contain messages a developer logs later. The logging rule is to keep secrets out of those messages.
 - PostgreSQL, once installed, must be configured by the operator to listen on localhost and to use a password that is not reused from another service. The repository does not do that install.

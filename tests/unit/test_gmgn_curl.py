@@ -53,6 +53,26 @@ async def test_curl_failure_does_not_echo_the_api_key(
     assert KEY not in str(caught.value)
 
 
+def test_curl_quote_escapes_a_backslash() -> None:
+    from integrations.gmgn.curl_transport import _quote
+
+    assert _quote("a\\b") == '"a\\\\b"'
+    assert _quote("trailing\\") == '"trailing\\\\"'
+
+
+@pytest.mark.asyncio
+async def test_curl_transport_refuses_another_host() -> None:
+    transport = CurlTransport(sys.executable, (str(FIXTURE),))
+    request = httpx2.Request(
+        "GET",
+        "https://evil.example/v1/market/rank",
+        headers={"X-APIKEY": KEY},
+    )
+    with pytest.raises(httpx2.TransportError, match="GMGN API host") as caught:
+        await transport.handle_async_request(request)
+    assert KEY not in str(caught.value)
+
+
 @pytest.mark.asyncio
 async def test_curl_transport_refuses_a_quoted_header_value() -> None:
     transport = CurlTransport(sys.executable, (str(FIXTURE),))

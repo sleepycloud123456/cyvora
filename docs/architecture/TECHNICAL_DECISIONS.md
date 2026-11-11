@@ -125,3 +125,13 @@ The supervisor defaults to one tick and does not call GMGN. `--include-radar` us
 `pg_dump` receives the password only through `PGPASSWORD` in a narrow child environment. Diagnostic JSON goes through `monitoring.redaction`. The desktop reconnects by polling loopback. It does not launch the API.
 
 `deploy/cloud/` and the Windows task template are design files. Docker was not run, and the scheduled task was not registered. Settings still reject a non-local environment and a non-loopback bind, so the design cannot be turned on by a compose variable. See `docs/operations/CLOUD_DESIGN.md`.
+
+## The live gate has no granted state
+
+Date: 2026-11-11.
+
+Phase 9 could have added `LIVE_LOCKED` as a mode that loads a signer and refuses to send. That still puts signing code and a key path in the process. The alternative, which this phase uses, is a report and a database latch that cannot store `authorized`. `readiness.live_gate` returns `authorized=False` even when every checklist item is marked present. There is no environment variable for the grant.
+
+The kill switch is separate from Shield's `halt_entries` so resume cannot clear an emergency stop. It blocks new operator paper orders and does not flatten a position, because a flatten would be another order and this phase has no live exit to submit. Isolated backtests keep their own ledger so a research run is not an operator order. The tradeoff is that a backtest can still be started while the switch is engaged. It cannot write the operator book.
+
+`pg_dump` is no longer taken from `PATH`. A custom PostgreSQL install is reported as `tool_missing`. That is preferred to handing `PGPASSWORD` to whatever binary appears first. The curl transport escapes backslashes and refuses any host other than `openapi.gmgn.ai`, because the API key is written into the curl config file. See `docs/security/SECURITY_REVIEW.md`.

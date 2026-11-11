@@ -80,6 +80,10 @@ def _run(settings: Settings, action: str, payload: object) -> str:
     if action == "resume":
         repository.resume_entries(now)
         return "Paper entry evaluation was resumed. Live trading stays locked."
+    if action == "kill-engage":
+        return _kill_switch(settings, "engage", now)
+    if action == "kill-release":
+        return _kill_switch(settings, "release", now)
     if action == "activate":
         if not isinstance(payload, str):
             raise CyvoraError("A profile id is required.")
@@ -116,6 +120,29 @@ def _run(settings: Settings, action: str, payload: object) -> str:
         verb = "started" if action == "start" else "stopped"
         return f"The strategy was {verb}. No order was submitted."
     raise CyvoraError("That terminal action is not available.")
+
+
+def _kill_switch(settings: Settings, action: str, now: datetime) -> str:
+    if not settings.database_url:
+        raise CyvoraError(
+            "The kill switch is not stored because the database is not configured. "
+            "Live trading stays locked."
+        )
+    from database.repositories.readiness import ReadinessRepository
+    from domain.readiness import ENGAGE_CONFIRMATION, RELEASE_CONFIRMATION
+
+    repository = ReadinessRepository(settings)
+    if action == "engage":
+        repository.engage(ENGAGE_CONFIRMATION, now)
+        return (
+            "The kill switch is engaged. New operator paper orders are refused. "
+            "No order was submitted. Live trading stays locked."
+        )
+    repository.release(RELEASE_CONFIRMATION, now)
+    return (
+        "The kill switch is released. Shield evaluates paper orders again. "
+        "Live trading stays locked."
+    )
 
 
 def _strategy(settings: Settings, strategy_id: str, *, start: bool) -> None:

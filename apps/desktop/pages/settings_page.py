@@ -31,6 +31,8 @@ class SettingsPage(QWidget):
     preferences_save = Signal(object)
     pause_requested = Signal()
     resume_requested = Signal()
+    kill_engage_requested = Signal()
+    kill_release_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -42,7 +44,8 @@ class SettingsPage(QWidget):
         self.notice.setWordWrap(True)
         self.live_lock = QLabel(
             "Live trading is locked. No control on this page can enable it. "
-            "Manual trade override is locked."
+            "Manual trade override is locked. The kill switch blocks new operator "
+            "paper orders and does not sign or submit a transaction."
         )
         self.live_lock.setObjectName("LockNote")
         self.live_lock.setWordWrap(True)
@@ -79,6 +82,12 @@ class SettingsPage(QWidget):
         self.resume = QPushButton("Resume paper entries")
         self.resume.setObjectName("SecondaryButton")
         self.resume.clicked.connect(self._resume)
+        self.kill_engage = QPushButton("Engage kill switch")
+        self.kill_engage.setObjectName("DangerButton")
+        self.kill_engage.clicked.connect(self._engage_kill)
+        self.kill_release = QPushButton("Release kill switch")
+        self.kill_release.setObjectName("SecondaryButton")
+        self.kill_release.clicked.connect(self._release_kill)
         self.categories: dict[str, QCheckBox] = {}
         category_row = QVBoxLayout()
         for category in NotificationCategory:
@@ -117,6 +126,8 @@ class SettingsPage(QWidget):
         layout.addWidget(self.profile_note)
         layout.addWidget(self.pause)
         layout.addWidget(self.resume)
+        layout.addWidget(self.kill_engage)
+        layout.addWidget(self.kill_release)
         layout.addLayout(category_row)
         layout.addWidget(self.quiet_enabled)
         layout.addWidget(self.quiet_start)
@@ -196,6 +207,26 @@ class SettingsPage(QWidget):
         )
         if answer == QMessageBox.StandardButton.Yes:
             self.resume_requested.emit()
+
+    def _engage_kill(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            "Engage kill switch",
+            "Block new operator paper orders? This does not submit an order, "
+            "does not flatten a position, and does not enable live trading. "
+            "Resume paper entries does not release this switch.",
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.kill_engage_requested.emit()
+
+    def _release_kill(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            "Release kill switch",
+            "Allow Shield to evaluate new operator paper orders again? Live trading stays locked.",
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.kill_release_requested.emit()
 
     def _save_preferences(self) -> None:
         try:

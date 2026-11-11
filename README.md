@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, a Phase 6 simulation backtest, the Phase 7 terminal pages, and a Phase 8 local supervisor. The desktop shows stored rows or an explicit empty state. It does not invent rows when none are stored.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, a Phase 6 simulation backtest, the Phase 7 terminal pages, a Phase 8 local supervisor, and a Phase 9 security review with live trading still locked. The desktop shows stored rows or an explicit empty state. It does not invent rows when none are stored.
 
 Live trading is not implemented.
 

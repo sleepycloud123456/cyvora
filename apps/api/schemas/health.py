@@ -33,6 +33,7 @@ class HealthResponse(BaseModel):
     market_data: ComponentStatusModel
     queue: ComponentStatusModel
     websocket: ComponentStatusModel
+    kill_switch: ComponentStatusModel
 
     @classmethod
     def from_snapshot(cls, snapshot: StatusSnapshot) -> HealthResponse:
@@ -52,4 +53,5 @@ class HealthResponse(BaseModel):
             market_data=ComponentStatusModel.from_status(snapshot.market_data),
             queue=ComponentStatusModel.from_status(snapshot.queue),
             websocket=ComponentStatusModel.from_status(snapshot.websocket),
+            kill_switch=ComponentStatusModel.from_status(snapshot.kill_switch),
         )
