@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 — 2026-11-11 — Phase 5
+
+- Added the deterministic Shield engine: position size, stops, take-profits, trailing stops, allocation, SOL reserve, liquidity, correlation, daily loss, drawdown, consecutive-loss campaigns, and emergency classification.
+- Wired Shield into the paper gateway. A stored decision is `paper_approved` or `denied`. A caller cannot approve an order, and a paper approval cannot submit a live order.
+- Stored the risk book in PostgreSQL revision `0004_shield_risk_engine`. The Risk Management page reads that book. Notices stay local.
+- Left GMGN on the existing curl transport and rate limiter. No RPC, wallet, signer, or Phase 6 broker was added.
+
 ## 0.4.0 — 2026-11-11 — Phase 4
 
 - Added NautilusTrader 1.231.0 and an offline proof for Solana instrument precision, quotes, trades, bars, a full fill, an IOC partial, and a denied buy.

@@ -86,4 +86,14 @@ Date: 2026-11-11.
 
 The master tree names `trading/nautilus`, `trading/execution`, `trading/portfolio`, and `trading/strategies`. Phase 4 uses those packages for the mapping, the paper gateway, position accounting, and a strategy registry. It does not add `momentum.py` or the other signal modules. There is no second trading process. The API and the desktop call the same repository.
 
-A paper fill price is the caller's reference price plus a caller-supplied quote slippage. That is not a pool-impact model. Shield is not called, and the stored decision stays `not_authorized`. The database check constraint rejects live order states, `simulated = false`, and any shield value other than `not_authorized`.
+A paper fill price is the caller's reference price plus a caller-supplied quote slippage. That is not a pool-impact model. Shield must approve the paper order before that fill is stored. The database check constraint rejects live order states and `simulated = false`.
+
+## Shield stays a paper decision
+
+Date: 2026-11-11.
+
+The master spec makes Shield the trade-approval authority and lists position sizing, stops, take-profits, trails, loss limits, correlation, allocation, liquidity, and an emergency stop. Phase 5 implements those as pure `Decimal` decisions in `shield/`. The paper gateway calls `evaluate` inside the ledger lock. A denial is stored as a failed paper order and does not change the position. An approval stores `paper_approved` and then runs the existing simulator.
+
+The spec also describes wallet equity, SOL reserve, and emergency liquidation-style exits. This phase does not read a wallet. Verified equity is a caller-supplied paper valuation that must equal SOL plus marked positions. The detector records an emergency and does not submit an order. Reduce-only paper sells stay available during a breach. Automatic stop execution is left for the Phase 6 broker.
+
+A planned stop is not treated as a guaranteed sale. Correlation is shared supplied tags, not an estimated coefficient. The formulas and the initial limits are in `docs/trading/SHIELD.md`.

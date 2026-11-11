@@ -40,3 +40,12 @@ def paper_states(outcome: SimulationOutcome) -> tuple[OrderState, ...]:
     for state in path:
         ensure_paper_state(state)
     return path
+
+
+def paper_denied_states() -> tuple[OrderState, ...]:
+    """States for an order Shield refused before the simulator ran."""
+
+    path = (OrderState.CREATED, OrderState.VALIDATED, OrderState.FAILED)
+    for state in path:
+        ensure_paper_state(state)
+    return path

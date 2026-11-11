@@ -18,25 +18,36 @@ from database.models.trading import (
     TradingReconciliation,
     TradingStrategy,
 )
+from database.repositories.shield import (
+    lock_snapshot,
+    mark_campaign_reconciled,
+    read_decisions,
+    read_notices,
+    read_snapshot,
+    utc_now,
+    write_snapshot,
+)
 from domain.exceptions import (
     DatabaseNotConfiguredError,
     DatabaseUnavailableError,
     TradingDisabled,
     TradingValidationError,
 )
+from domain.shield import ShieldDecisionRecord, ShieldNotice, ShieldSnapshot
 from domain.trading import (
-    SHIELD_NOT_AUTHORIZED,
     OrderRecord,
     OrderSide,
     OrderState,
     PositionRecord,
     ReconciliationRecord,
+    ReconciliationStatus,
     SimulationOutcome,
     StrategyRecord,
     StrategyState,
     TradingSnapshot,
 )
-from trading.store import PaperBuilder, PaperCommit
+from shield.limits import require_paper_decision
+from trading.store import LedgerContext, PaperBuilder, PaperCommit
 
 logger = logging.getLogger("cyvora.trading")
 
@@ -67,6 +78,8 @@ class PostgresTradingRepository:
         engine = create_database_engine(self._settings)
         try:
             with Session(engine) as session:
+                now = datetime.now(UTC)
+                shield = lock_snapshot(session, now)
                 existing_row = session.scalar(
                     select(TradingOrder)
                     .where(TradingOrder.idempotency_key == idempotency_key)
@@ -75,13 +88,27 @@ class PostgresTradingRepository:
                 position_row = session.scalar(
                     select(TradingPosition).where(TradingPosition.mint == mint).with_for_update()
                 )
+                position_rows = session.scalars(select(TradingPosition)).all()
+                order_rows = session.scalars(select(TradingOrder)).all()
                 existing = None if existing_row is None else _order(existing_row)
                 position = None if position_row is None else _position(position_row)
-                commit = build(existing, position)
+                commit = build(
+                    LedgerContext(
+                        existing=existing,
+                        position=position,
+                        positions=tuple(_position(row) for row in position_rows),
+                        orders=tuple(_order(row) for row in order_rows),
+                        shield=shield,
+                    )
+                )
                 if existing is not None or commit.unchanged:
                     session.rollback()
                     return existing if existing is not None else commit.order
                 _insert_commit(session, commit)
+                if commit.shield is not None:
+                    write_snapshot(
+                        session, commit.shield, commit.shield_record, commit.notices, now
+                    )
                 session.commit()
                 return commit.order
         except (
@@ -150,6 +177,8 @@ class PostgresTradingRepository:
                         recorded_at=record.recorded_at,
                     )
                 )
+                if record.status is ReconciliationStatus.MATCHED:
+                    mark_campaign_reconciled(session, record.client_order_id)
                 session.commit()
                 return record
         except (DatabaseNotConfiguredError, TradingValidationError):
@@ -265,6 +294,68 @@ class PostgresTradingRepository:
         finally:
             engine.dispose()
 
+    def load_shield(self) -> ShieldSnapshot:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                return read_snapshot(session)
+        except DatabaseNotConfiguredError:
+            raise
+        except TradingValidationError:
+            raise
+        except Exception as exc:
+            logger.warning("shield load failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Stored Shield records could not be read.") from None
+        finally:
+            engine.dispose()
+
+    def save_shield(
+        self,
+        snapshot: ShieldSnapshot,
+        record: ShieldDecisionRecord | None = None,
+        notices: tuple[ShieldNotice, ...] = (),
+    ) -> None:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                now = utc_now()
+                lock_snapshot(session, now)
+                write_snapshot(session, snapshot, record, notices, now)
+                session.commit()
+        except (DatabaseNotConfiguredError, TradingValidationError):
+            raise
+        except Exception as exc:
+            logger.warning("shield save failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("The Shield book could not be stored.") from None
+        finally:
+            engine.dispose()
+
+    def list_notices(self) -> tuple[ShieldNotice, ...]:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                return read_notices(session)
+        except DatabaseNotConfiguredError:
+            raise
+        except Exception as exc:
+            logger.warning("shield notices failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Stored Shield notes could not be read.") from None
+        finally:
+            engine.dispose()
+
+    def list_decisions(self) -> tuple[ShieldDecisionRecord, ...]:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                return read_decisions(session)
+        except DatabaseNotConfiguredError:
+            raise
+        except Exception as exc:
+            logger.warning("shield decisions failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Stored Shield decisions could not be read.") from None
+        finally:
+            engine.dispose()
+
 
 def _insert_commit(session: Session, commit: PaperCommit) -> None:
     instrument = commit.instrument
@@ -312,7 +403,7 @@ def _insert_commit(session: Session, commit: PaperCommit) -> None:
         price_decimals=order.price_decimals,
         quote_decimals=order.quote_decimals,
         outcome=order.outcome.value,
-        shield_decision=SHIELD_NOT_AUTHORIZED,
+        shield_decision=require_paper_decision(order.shield_decision, simulated=True),
         simulated=True,
         execution_mode="PAPER",
         reason=order.reason,

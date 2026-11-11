@@ -12,8 +12,8 @@ from decimal import Decimal
 
 from domain.enums import ExecutionMode
 from domain.exceptions import TradingDisabled, TradingValidationError
+from domain.shield import PAPER_APPROVED, SHIELD_DENIED, ExitKind, RiskIntent
 from domain.trading import (
-    SHIELD_NOT_AUTHORIZED,
     ExecutionReport,
     OrderRecord,
     OrderSide,
@@ -23,8 +23,9 @@ from domain.trading import (
     SimulationOutcome,
     SolanaInstrument,
 )
+from shield.engine import Evaluation, apply_execution, decision_record, evaluate
 from trading.execution.idempotency import client_order_id_for, require_idempotency_key
-from trading.execution.order_manager import paper_states
+from trading.execution.order_manager import paper_denied_states, paper_states
 from trading.execution.reconciliation import reconcile_order
 from trading.instruments import (
     require_instrument,
@@ -33,14 +34,14 @@ from trading.instruments import (
     require_scaled,
 )
 from trading.portfolio.accounting import apply_fill
-from trading.store import OrderEventWrite, PaperCommit, TradingStore
+from trading.store import LedgerContext, OrderEventWrite, PaperCommit, TradingStore
 
 _NOTES = {
-    OrderState.CREATED: "TradeIntentCreated. Shield has not authorized this intent.",
+    OrderState.CREATED: "TradeIntentCreated. Shield is evaluating this paper intent.",
     OrderState.VALIDATED: "The paper request passed local validation.",
     OrderState.SIMULATION_PENDING: "ExecutionPending. The local simulator has not finished.",
     OrderState.SIMULATION_PASSED: (
-        "PaperOrderSubmitted. The local simulator accepted the order. "
+        "PaperOrderSubmitted. Shield approved a paper simulation only. "
         "No venue and no chain transaction was used."
     ),
     OrderState.CONFIRMED: (
@@ -48,10 +49,17 @@ _NOTES = {
     ),
     OrderState.FAILED: "ExecutionFailed. No position change was stored.",
 }
+_DENY_NOTES = {
+    OrderState.CREATED: "TradeIntentCreated. Shield is evaluating this paper intent.",
+    OrderState.VALIDATED: "The paper request passed local validation.",
+    OrderState.FAILED: (
+        "Shield denied the paper order. No simulation ran and live execution stays disabled."
+    ),
+}
 
 
 class PaperOrderRequest:
-    """One simulated order. ``shield_approved`` must stay false."""
+    """One simulated order. The caller cannot set Shield's decision."""
 
     def __init__(
         self,
@@ -67,6 +75,7 @@ class PaperOrderRequest:
         fee_quote: Decimal = Decimal(0),
         slippage_quote: Decimal = Decimal(0),
         shield_approved: bool = False,
+        risk: RiskIntent | None = None,
     ) -> None:
         self.strategy_id = strategy_id
         self.instrument = instrument
@@ -79,6 +88,7 @@ class PaperOrderRequest:
         self.fee_quote = fee_quote
         self.slippage_quote = slippage_quote
         self.shield_approved = shield_approved
+        self.risk = risk
 
 
 class PaperExecutionGateway:
@@ -98,8 +108,8 @@ class PaperExecutionGateway:
         self._require_paper()
         if request.shield_approved:
             raise TradingDisabled(
-                "A strategy cannot approve an order. Shield is not implemented "
-                "and live execution is disabled."
+                "A strategy cannot approve an order. Shield evaluates the paper "
+                "request, and live execution is disabled."
             )
         key = require_idempotency_key(request.idempotency_key)
         instrument = require_instrument(request.instrument)
@@ -107,7 +117,7 @@ class PaperExecutionGateway:
         return self._store.commit_paper(
             key,
             instrument.mint,
-            lambda existing, position: self._build(request, instrument, key, existing, position),
+            lambda context: self._build(request, instrument, key, context),
         )
 
     def reconcile(
@@ -154,45 +164,42 @@ class PaperExecutionGateway:
         request: PaperOrderRequest,
         instrument: SolanaInstrument,
         key: str,
-        existing: OrderRecord | None,
-        position: PositionRecord | None,
+        context: LedgerContext,
     ) -> PaperCommit:
-        if existing is not None:
-            return PaperCommit(existing, (), None, None, True)
+        if context.existing is not None:
+            return PaperCommit(context.existing, (), None, None, True)
         now = self._clock()
-        filled, fill_price, reason = self._result(request, instrument, position, now)
+        intent = request.risk or _bare_intent(request, instrument)
+        evaluation = evaluate(
+            context.shield,
+            intent,
+            context.positions,
+            context.orders,
+            now,
+        )
+        if not evaluation.approved:
+            return self._denied(request, instrument, key, evaluation, intent, now)
+        filled, fill_price, reason = self._result(request, instrument, context.position, now)
         outcome = request.outcome if reason is None else SimulationOutcome.FAIL
         states = paper_states(outcome)
         events = tuple(OrderEventWrite(state.value, _NOTES[state], now) for state in states)
-        order = OrderRecord(
-            client_order_id=client_order_id_for(key),
-            idempotency_key=key,
-            strategy_id=request.strategy_id,
-            mint=instrument.mint,
-            symbol=instrument.symbol,
-            side=request.side,
-            state=states[-1],
-            quantity=request.quantity,
-            filled_quantity=filled,
-            reference_price=request.reference_price,
-            fill_price=fill_price,
-            fee_quote=request.fee_quote if filled > 0 else Decimal(0),
-            slippage_quote=request.slippage_quote if filled > 0 else Decimal(0),
-            quote_symbol=instrument.quote_symbol,
-            size_decimals=instrument.size_decimals,
-            price_decimals=instrument.price_decimals,
-            quote_decimals=instrument.quote_decimals,
-            outcome=request.outcome,
-            shield_decision=SHIELD_NOT_AUTHORIZED,
-            simulated=True,
-            reason=reason,
-            created_at=now,
-            updated_at=now,
+        order = _order(
+            request,
+            instrument,
+            key,
+            states[-1],
+            filled,
+            fill_price,
+            reason,
+            PAPER_APPROVED,
+            now,
         )
         new_position = None
+        snapshot = evaluation.snapshot
+        notices = evaluation.notices
         if filled > 0 and fill_price is not None:
             new_position = apply_fill(
-                position,
+                context.position,
                 mint=instrument.mint,
                 side=request.side,
                 filled_quantity=filled,
@@ -201,7 +208,59 @@ class PaperExecutionGateway:
                 quote_symbol=instrument.quote_symbol,
                 now=now,
             )
-        return PaperCommit(order, events, new_position, instrument, False)
+            snapshot, fill_notices = apply_execution(
+                snapshot,
+                order=order,
+                position_before=context.position,
+                position_after=new_position,
+                intent=intent,
+                effective_stop=evaluation.effective_stop,
+                exit_kind=evaluation.exit_kind,
+                now=now,
+            )
+            notices = notices + fill_notices
+        record = decision_record(
+            evaluation, client_order_id=order.client_order_id, intent=intent, now=now
+        )
+        return PaperCommit(
+            order, events, new_position, instrument, False, snapshot, record, notices
+        )
+
+    def _denied(
+        self,
+        request: PaperOrderRequest,
+        instrument: SolanaInstrument,
+        key: str,
+        evaluation: Evaluation,
+        intent: RiskIntent,
+        now: datetime,
+    ) -> PaperCommit:
+        states = paper_denied_states()
+        events = tuple(OrderEventWrite(state.value, _DENY_NOTES[state], now) for state in states)
+        order = _order(
+            request,
+            instrument,
+            key,
+            states[-1],
+            Decimal(0),
+            None,
+            evaluation.reason,
+            SHIELD_DENIED,
+            now,
+        )
+        record = decision_record(
+            evaluation, client_order_id=order.client_order_id, intent=intent, now=now
+        )
+        return PaperCommit(
+            order,
+            events,
+            None,
+            instrument,
+            False,
+            evaluation.snapshot,
+            record,
+            evaluation.notices,
+        )
 
     def _result(
         self,
@@ -237,6 +296,81 @@ def refuse_live_execution(operation: str) -> None:
         token = "unknown"
     raise TradingDisabled(
         f"Refusing {token}. Live execution is disabled. No wallet, signer, or swap will be called."
+    )
+
+
+def _order(
+    request: PaperOrderRequest,
+    instrument: SolanaInstrument,
+    key: str,
+    state: OrderState,
+    filled: Decimal,
+    fill_price: Decimal | None,
+    reason: str | None,
+    shield_decision: str,
+    now: datetime,
+) -> OrderRecord:
+    return OrderRecord(
+        client_order_id=client_order_id_for(key),
+        idempotency_key=key,
+        strategy_id=request.strategy_id,
+        mint=instrument.mint,
+        symbol=instrument.symbol,
+        side=request.side,
+        state=state,
+        quantity=request.quantity,
+        filled_quantity=filled,
+        reference_price=request.reference_price,
+        fill_price=fill_price,
+        fee_quote=request.fee_quote if filled > 0 else Decimal(0),
+        slippage_quote=request.slippage_quote if filled > 0 else Decimal(0),
+        quote_symbol=instrument.quote_symbol,
+        size_decimals=instrument.size_decimals,
+        price_decimals=instrument.price_decimals,
+        quote_decimals=instrument.quote_decimals,
+        outcome=request.outcome,
+        shield_decision=shield_decision,
+        simulated=True,
+        reason=reason,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _bare_intent(request: PaperOrderRequest, instrument: SolanaInstrument) -> RiskIntent:
+    """An order with no portfolio facts. Shield denies a new entry from this."""
+
+    kind = ExitKind.ENTRY.value if request.side is OrderSide.BUY else ExitKind.NORMAL.value
+    return RiskIntent(
+        mint=instrument.mint,
+        side=request.side.value,
+        quantity=request.quantity,
+        reference_price=request.reference_price,
+        fee_quote=request.fee_quote,
+        slippage_quote=request.slippage_quote,
+        size_decimals=instrument.size_decimals,
+        price_decimals=instrument.price_decimals,
+        quote_decimals=instrument.quote_decimals,
+        quote_symbol=instrument.quote_symbol,
+        stop_price=None,
+        equity_quote=None,
+        sol_balance=None,
+        valued_at=None,
+        marks=(),
+        liquidity_quote=None,
+        volatility=None,
+        confidence=None,
+        token_age_seconds=None,
+        market_condition=None,
+        security=None,
+        creator=None,
+        narrative=None,
+        liquidity_provider=None,
+        driver=None,
+        estimated_impact=None,
+        exit_kind=kind,
+        signal_ref=None,
+        emergency=None,
     )
 
 

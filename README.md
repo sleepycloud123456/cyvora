@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, and a Phase 4 paper ledger. The desktop shows stored radar rows and stored simulated orders. It does not invent rows when none are stored.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, and a Phase 5 Shield risk engine. The desktop shows stored radar rows, stored simulated orders, and stored paper risk decisions. It does not invent rows when none are stored.
 
 Live trading is not implemented.
 
@@ -14,10 +14,11 @@ Slogan: TRADE BEYOND LIMITS.
 - A PySide6 terminal with branding, navigation, and application, database, backend, and GMGN configuration status.
 - A read-only GMGN client for market and token research. Trade and signing routes are refused.
 - Radar discovery, security, liquidity, indicators, smart-money and whale tag counts, a documented score, rankings, watchlists, and PostgreSQL history.
-- A paper execution gateway, order states, position accounting, a strategy registry, and a NautilusTrader 1.231.0 mapping proof. Simulated orders stay `not_authorized`.
+- A paper execution gateway, order states, position accounting, a strategy registry, and a NautilusTrader 1.231.0 mapping proof.
+- CYVORA Shield, which approves or denies paper orders. A paper approval cannot submit a live order.
 - Cursor project rules and `AGENTS.md`.
 
-Dashboard, System Health, the radar pages, Open Positions, Trade History, and Strategies are implemented. Other pages are labeled placeholders. They do not contain sample trades.
+Dashboard, System Health, the radar pages, Open Positions, Trade History, Strategies, and Risk Management are implemented. Other pages are labeled placeholders. They do not contain sample trades.
 
 ## Prerequisites
 
@@ -80,7 +81,7 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0003_trading_infrastructure`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0004_shield_risk_engine`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
 One stored radar cycle, when the key and the database are both configured:
 

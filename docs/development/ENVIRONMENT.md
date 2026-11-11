@@ -51,7 +51,7 @@ The installed wheel's fixed precision is 9. `uvloop` is not installed; it is not
 
 PostgreSQL 17.11 is installed as the Windows service `postgresql-x64-17`. The service was Running, with start type Automatic, on 2026-11-11. `psql` is not on `PATH`. The binary is `C:\Program Files\PostgreSQL\17\bin\psql.exe`.
 
-A local `cyvora` role and database exist. `CYVORA_DATABASE_URL` is set in the gitignored `.env`. Alembic head is `0003_trading_infrastructure` after Phase 4. The desktop smoke reports the database as `reachable` when the local server answers. Do not print the URL or the password.
+A local `cyvora` role and database exist. `CYVORA_DATABASE_URL` is set in the gitignored `.env`. Alembic head is `0004_shield_risk_engine` after Phase 5. The desktop smoke reports the database as `reachable` when the local server answers. Do not print the URL or the password.
 
 Docker is still not installed. Do not point this project at a hosted database.
 
@@ -78,4 +78,4 @@ Docker is still not installed. Do not point this project at a hosted database.
 | pytest-qt | 4.5.0 |
 | ruff | 0.17.4 |
 
-On 2026-11-11 the same environment also contains `cyvora` 0.4.0 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.
+On 2026-11-11 the same environment also contains `cyvora` 0.5.0 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.

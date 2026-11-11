@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 4 is the paper trading core. Do not start Phase 5 (Shield), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 4 verified.
+Phase 5 is the Shield risk engine. Do not start Phase 6 (backtesting and the paper broker), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 5 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -46,9 +46,10 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Radar | `intelligence/` | Discovery, scoring, and the cycle. No orders. |
 | Solana data | `integrations/solana/` | Market-contract adaptation. No RPC and no wallet. |
 | Core | `trading/` | Paper gateway, order state, positions, strategy registry, Nautilus proof. |
+| Shield | `shield/` | Paper risk decisions. Approval cannot enable a live order. |
 | Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
-Do not add Shield or signal-strategy modules until that phase starts. The strategy registry is not a signal generator.
+Do not add signal-strategy or backtest modules until that phase starts. The strategy registry is not a signal generator.
 
 ## Workflow
 

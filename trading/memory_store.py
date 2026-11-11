@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from domain.shield import ShieldDecisionRecord, ShieldNotice, ShieldSnapshot
 from domain.trading import (
     OrderRecord,
     PositionRecord,
     ReconciliationRecord,
+    ReconciliationStatus,
     StrategyRecord,
     StrategyState,
     TradingSnapshot,
 )
-from trading.store import PaperBuilder
+from shield.engine import initial_snapshot, mark_reconciled
+from trading.store import LedgerContext, PaperBuilder
 
 
 class MemoryTradingStore:
@@ -24,6 +27,9 @@ class MemoryTradingStore:
         self.positions: dict[str, PositionRecord] = {}
         self.strategies: dict[str, StrategyRecord] = {}
         self.reconciliations: list[ReconciliationRecord] = []
+        self.shield: ShieldSnapshot = initial_snapshot()
+        self.notices: list[ShieldNotice] = []
+        self.decisions: list[ShieldDecisionRecord] = []
 
     def commit_paper(
         self,
@@ -35,7 +41,14 @@ class MemoryTradingStore:
             (order for order in self.orders.values() if order.idempotency_key == idempotency_key),
             None,
         )
-        commit = build(existing, self.positions.get(mint))
+        context = LedgerContext(
+            existing=existing,
+            position=self.positions.get(mint),
+            positions=tuple(self.positions.values()),
+            orders=tuple(self.orders.values()),
+            shield=self.shield,
+        )
+        commit = build(context)
         if existing is not None or commit.unchanged:
             return existing if existing is not None else commit.order
         self.orders[commit.order.client_order_id] = commit.order
@@ -44,6 +57,7 @@ class MemoryTradingStore:
         ]
         if commit.position is not None:
             self.positions[commit.position.mint] = commit.position
+        self._keep_shield(commit.shield, commit.shield_record, commit.notices)
         return commit.order
 
     def get_order(self, client_order_id: str) -> OrderRecord | None:
@@ -62,6 +76,8 @@ class MemoryTradingStore:
                 (order.state.value, record.detail)
             )
         self.reconciliations.append(record)
+        if record.status is ReconciliationStatus.MATCHED:
+            self.shield = mark_reconciled(self.shield, order.client_order_id)
         return record
 
     def list_orders(self) -> tuple[OrderRecord, ...]:
@@ -98,3 +114,36 @@ class MemoryTradingStore:
 
     def snapshot(self) -> TradingSnapshot:
         return TradingSnapshot(self.list_orders(), self.list_positions(), self.list_strategies())
+
+    def load_shield(self) -> ShieldSnapshot:
+        return self.shield
+
+    def save_shield(
+        self,
+        snapshot: ShieldSnapshot,
+        record: ShieldDecisionRecord | None = None,
+        notices: tuple[ShieldNotice, ...] = (),
+    ) -> None:
+        self._keep_shield(snapshot, record, notices)
+
+    def list_notices(self) -> tuple[ShieldNotice, ...]:
+        return tuple(self.notices[-20:])
+
+    def list_decisions(self) -> tuple[ShieldDecisionRecord, ...]:
+        return tuple(self.decisions[-20:])
+
+    def _keep_shield(
+        self,
+        snapshot: ShieldSnapshot | None,
+        record: ShieldDecisionRecord | None,
+        notices: tuple[ShieldNotice, ...],
+    ) -> None:
+        if record is not None and record.live_trading_enabled:
+            from domain.exceptions import TradingValidationError
+
+            raise TradingValidationError("Shield cannot store a live approval.")
+        if snapshot is not None:
+            self.shield = snapshot
+        if record is not None:
+            self.decisions.append(record)
+        self.notices.extend(notices)

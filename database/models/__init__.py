@@ -16,6 +16,15 @@ from database.models.radar import (
     WatchlistItem,
     WhaleEvent,
 )
+from database.models.shield import (
+    ShieldCampaign,
+    ShieldControl,
+    ShieldDaily,
+    ShieldDecision,
+    ShieldEmergency,
+    ShieldNoticeRow,
+    ShieldStop,
+)
 from database.models.trading import (
     TradingInstrument,
     TradingOrder,
@@ -33,6 +42,13 @@ __all__ = [
     "LiquiditySnapshot",
     "RadarCycle",
     "SecurityAssessmentRow",
+    "ShieldCampaign",
+    "ShieldControl",
+    "ShieldDaily",
+    "ShieldDecision",
+    "ShieldEmergency",
+    "ShieldNoticeRow",
+    "ShieldStop",
     "SmartMoneyEvent",
     "Token",
     "TokenAnalysis",

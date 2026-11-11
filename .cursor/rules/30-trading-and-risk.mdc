@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Trading and risk
 
-Phase 4 paper execution is simulated. Shield is not implemented yet. When risk checks are added:
+Phase 5 paper execution is simulated. Shield approves or denies that simulation.
 
-- CYVORA Shield is the only trade-approval authority. Strategies, the desktop, and any AI output cannot bypass it. Phase 4 stores `not_authorized` on every paper order.
+- CYVORA Shield is the only trade-approval authority. Strategies, the desktop, and any AI output cannot bypass it. `paper_approved` does not enable a live order.
 - The default mode remains `READ_ONLY` or `PAPER`. Paper code must not call a swap or a signer.
 - A submission response is not a fill. A paper `CONFIRMED` state is a simulator result. Reconcile before retrying an uncertain request.
 - Do not invent GMGN endpoints or Nautilus order types. The 1.231.0 mapping is `docs/trading/NAUTILUS_MAPPING.md`.

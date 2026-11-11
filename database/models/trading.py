@@ -62,7 +62,7 @@ class TradingOrder(Base):
         UniqueConstraint("idempotency_key", name="uq_trading_orders_idempotency"),
         CheckConstraint("simulated IS true", name="ck_trading_orders_simulated"),
         CheckConstraint(
-            "shield_decision = 'not_authorized'",
+            "shield_decision IN ('not_authorized', 'paper_approved', 'denied')",
             name="ck_trading_orders_shield",
         ),
         CheckConstraint("execution_mode = 'PAPER'", name="ck_trading_orders_mode"),
