@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1 — 2026-11-11 — Nautilus health and local auth follow-up
+
+- Checked NautilusTrader 1.231.0 on the paper path: import, backtest node startup and shutdown, instrument load, a filled paper position, Shield round-trip PnL, kill-switch refusal, and a three-bar backtest. The report is `docs/status/NAUTILUS_HEALTH.md`.
+- Kept the operator paper book on Shield and the CYVORA simulator. The Nautilus engine remains an in-process paper proof and does not write that book.
+- Reloaded recent authentication failures from `auth_events` when the API starts. A restart no longer clears an open lockout. Detailed `/health` requires the local token and does not clear that window. A request with no token gets `{"status": "live"}` only.
+- Left `fsspec` at 2026.2.0. NautilusTrader 1.231.0 requires that exact version, so 2026.6.0 does not resolve beside the pin. The repository visibility was not changed. Live trading stays disabled.
+
 ## 0.9.0 — 2026-11-11 — Phase 9
 
 - Reviewed secrets, authentication, injection, logging, the public GitHub repository, and Shield bypass paths. Fixed curl-config quoting, database-URL exposure in settings output, log-path `..`, unauthenticated API docs, an unbounded bearer header, and `pg_dump` taken from `PATH`.

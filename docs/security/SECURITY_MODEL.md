@@ -59,7 +59,7 @@ Radar cycle saves and watchlist adds or removals insert `audit_events` with an a
 - No public listen address.
 - No cloud deployment. The design files under `deploy/` were not applied. Backup dumps and diagnostic files stay in gitignored directories.
 - No spending.
-- A configured database that cannot be reached makes `/health` return HTTP 503. The desktop keeps running and shows `unreachable`.
+- A request with no token gets `{"status": "live"}` from `/health`. The same route with the local token still returns HTTP 503 when a configured database cannot be reached. The desktop probe sends that token when one is configured, and it keeps running.
 
 ## Kill switch
 
@@ -69,9 +69,9 @@ The database URL is omitted from `repr(Settings)` and from `model_dump`. `get_se
 
 ## Known gaps
 
-- `/health` has no authentication token. The mitigation is that it has no sensitive body and the socket is loopback. Radar, trading, terminal, and operations routes require the local token.
-- The authentication failure count lives in the process. A restart clears it.
-- The GitHub repository is public. `.env` is not in history. Making the repository private is an operator decision.
-- `fsspec` 2026.2.0 is pinned by NautilusTrader 1.231.0 and has PYSEC-2026-4217. CYVORA does not call the affected API. See `docs/security/SECURITY_REVIEW.md`.
+- `/health` without a token returns liveness only. The detailed body, including the kill-switch word, requires the local token. The socket stays on loopback. Radar, trading, terminal, and operations routes require the token as well.
+- Authentication failures in the last 60 seconds are reloaded from `auth_events` when the API starts. A successful call on a protected route still clears the in-memory window. A successful detailed health call does not.
+- The GitHub repository is public. `.env` is not in history. Making the repository private is an operator decision. This follow-up did not change visibility.
+- `fsspec` 2026.2.0 is required by NautilusTrader 1.231.0 (`fsspec==2026.2.0`). `fsspec==2026.6.0` does not resolve beside that pin. CYVORA does not call the affected API. See `docs/security/SECURITY_REVIEW.md`.
 - Log files in `logs/` are local and gitignored. They can still contain messages a developer logs later. The logging rule is to keep secrets out of those messages.
 - PostgreSQL, once installed, must be configured by the operator to listen on localhost and to use a password that is not reused from another service. The repository does not do that install.

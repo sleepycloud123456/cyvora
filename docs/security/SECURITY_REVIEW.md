@@ -17,18 +17,26 @@ The public repository is `https://github.com/sleepycloud123456/cyvora`. GitHub r
 | Kill switch | Pause and resume are a Shield latch. Resume, a strategy, or the analyst could not be the only emergency control, and nothing persisted a separate operator stop. | The kill switch is a separate persisted latch. Resume and the analyst cannot release it. See `docs/security/LIVE_READINESS.md`. |
 | Live gate | Live mode names were rejected, but there was no single report of the chain controls that are still absent. | `readiness.live_gate` always returns unauthorized, including when every check is marked present. |
 
+## Follow-up on 2026-11-11
+
+These items did not need an operator decision. Live trading was not enabled, and the repository visibility was not changed.
+
+| Area | Finding | Change |
+|---|---|---|
+| Authentication failures | The failure count lived in the process. A restart cleared it. | On startup the API reloads rejected `auth_events` from the last 60 seconds that are still after the latest acceptance. The token is still not stored. |
+| Detailed health | `/health` had no bearer token and returned the kill-switch word. | A request with no `Authorization` header returns `{"status": "live"}` only. The previous detailed body requires the local token. A valid detailed health call does not clear the failure window. The desktop probe sends the token when one is configured. |
+| `fsspec` | PYSEC-2026-4217 is fixed in 2026.6.0. | The installed NautilusTrader 1.231.0 metadata requires `fsspec==2026.2.0`. A resolution of `nautilus-trader==1.231.0` plus `fsspec==2026.6.0` is unsatisfiable. The lock was not changed. CYVORA does not call the affected API. |
+
 ## Findings left open
 
 These are accepted for this phase or they need a decision from the operator. They are not permission to close them by enabling live trading.
 
-- The repository is public. Source, route names, and the fact that a local GMGN key and PostgreSQL exist on this PC are visible. The key and the database URL are not in git. Making the repository private is an operator decision. This phase does not change GitHub settings.
-- `/health` has no bearer token. The body is status words, including the kill-switch word, and the socket is loopback.
-- Authentication failures are counted in the process for 60 seconds. A restart clears the count. The `auth_events` table does not store the token.
-- The desktop reads PostgreSQL on this PC and does not send `CYVORA_API_TOKEN`. Anyone who can run the desktop as this user can pause entries and release the kill switch. The confirmation word is an interlock against a stray click. It is not a second secret.
+- The repository is public. Source, route names, and the fact that a local GMGN key and PostgreSQL exist on this PC are visible. The key and the database URL are not in git. Making the repository private is an operator decision. Visibility was not changed.
+- The desktop reads PostgreSQL on this PC for paper controls. The health probe sends the local token when one is configured. Anyone who can run the desktop as this user can pause entries and release the kill switch. The confirmation word is an interlock against a stray click. It is not a second secret.
 - `database_url` remains a string inside the process so SQLAlchemy can open it. Code that interpolates that attribute into a log line would publish the password. The CYVORA logger redacts a configured password of at least eight characters and redacts `postgresql://user:password@` text. A shorter password is still covered by the URL pattern.
 - An isolated backtest uses an in-memory ledger and does not consult the kill switch. It does not write the operator paper book.
 - There is no Solana RPC client, no chain simulation, no chain confirmation, and no wallet balance read. Those are gaps in the readiness report, not missing bugfixes to invent in this phase.
-- `pip-audit` on 2026-11-11 reported `fsspec` 2026.2.0, PYSEC-2026-4217, fixed in 2026.6.0. NautilusTrader 1.231.0 requires `fsspec==2026.2.0`, so the lock cannot move without replacing Nautilus. CYVORA does not import `fsspec` or open a reference filesystem. The vulnerable parser runs only when that API is given an attacker-controlled references document. This phase does not change the Nautilus pin.
+- `fsspec` 2026.2.0, PYSEC-2026-4217, remains. The follow-up above re-checked the pin and did not bump it. CYVORA does not import `fsspec` or open a reference filesystem.
 - A backup still requires PostgreSQL under Program Files. A custom install path is reported as `tool_missing` instead of executing an untrusted binary.
 - GitHub issues and the wiki are enabled on the public repository. Do not put secrets in either. `SECURITY.md` says that.
 

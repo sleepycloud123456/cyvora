@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import time
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.operations import BookOrder, BookPosition, BookSnapshot, TickResult
 from domain.status import ComponentStatus, StatusSnapshot
-from operations.auth_audit import AuthGate
+from operations.auth_audit import AuthGate, open_failure_count
 from operations.backup import run_backup
 from operations.diagnostics import build_document
 from operations.recovery import assess_book
@@ -235,6 +236,50 @@ def test_auth_gate_limits_failures_without_storing_a_token() -> None:
     assert not hasattr(event, "token")
 
 
+def test_open_failures_ignore_rejections_before_success_and_outside_the_window() -> None:
+    now = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
+    events = (
+        ("rejected", now - timedelta(seconds=50)),
+        ("accepted", now - timedelta(seconds=30)),
+        ("rejected", now - timedelta(seconds=10)),
+        ("rejected", now - timedelta(seconds=120)),
+    )
+    assert open_failure_count(events, now=now, window_seconds=60) == 1
+    restored = AuthGate(limit=2, window_seconds=60)
+    restored.restore_failures(2, 10.0)
+    assert restored.limited(10.0) is True
+    assert restored.limited(80.0) is False
+
+
+def test_restart_reloads_auth_failures_without_reading_a_token(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    def _count(self: object, *, now: datetime, window_seconds: float) -> int:
+        del self, now, window_seconds
+        return 3
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "database.repositories.operations.PostgresOperationsRepository.recent_auth_failures",
+        _count,
+    )
+    settings = Settings(
+        _env_file=None,
+        log_dir=tmp_path,
+        api_token="local-test-token-ok",
+        auth_failure_limit=3,
+        database_url="postgresql+psycopg://cyvora:not-a-real-password@127.0.0.1:1/cyvora",
+    )
+    app = create_app(settings)
+    assert app.state.auth_gate.limited(time.monotonic()) is True
+    client = TestClient(app)
+    limited = client.get(
+        "/operations/status",
+        headers={"Authorization": "Bearer nope-not-the-token"},
+    )
+    assert limited.status_code == 429
+    assert "not-a-real-password" not in limited.text
+
+
 def test_operations_routes_stay_local_and_block_entries(tmp_path: Path) -> None:
     secret = "local-test-token-ok"
     settings = Settings(
@@ -249,7 +294,10 @@ def test_operations_routes_stay_local_and_block_entries(tmp_path: Path) -> None:
     store = MemoryTradingStore()
     app.state.trading_store = store
     client = TestClient(app)
-    health = client.get("/health")
+    live = client.get("/health")
+    assert live.status_code == 200
+    assert live.json() == {"status": "live"}
+    health = client.get("/health", headers={"Authorization": f"Bearer {secret}"})
     assert health.status_code == 200
     assert health.json()["workers"]["state"] == "not_configured"
     assert health.json()["websocket"]["state"] == "not_configured"

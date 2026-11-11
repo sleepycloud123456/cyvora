@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select, text
@@ -19,6 +19,7 @@ from database.models.operations import (
     OperationRecovery,
     OperationWorker,
 )
+from domain.exceptions import DatabaseUnavailableError
 from domain.operations import (
     WALLET_NOT_AUTHORIZED,
     AuthEvent,
@@ -30,6 +31,7 @@ from domain.operations import (
     TickResult,
 )
 from domain.status import ComponentStatus
+from operations.auth_audit import open_failure_count
 
 logger = logging.getLogger("cyvora.operations")
 
@@ -226,6 +228,34 @@ class PostgresOperationsRepository:
                 session.commit()
         finally:
             engine.dispose()
+
+    def recent_auth_failures(self, *, now: datetime, window_seconds: float) -> int:
+        """Count open authentication failures in the recent window.
+
+        The query reads result and time only. It does not read a token.
+        """
+
+        cutoff = now - timedelta(seconds=window_seconds)
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                rows = session.execute(
+                    select(AuthEventRow.result, AuthEventRow.occurred_at)
+                    .where(AuthEventRow.occurred_at >= cutoff)
+                    .order_by(AuthEventRow.occurred_at.desc())
+                    .limit(500)
+                ).all()
+        except Exception as exc:
+            logger.warning("auth failure read failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Authentication history could not be read.") from None
+        finally:
+            engine.dispose()
+        events: list[tuple[str, datetime]] = []
+        for row in rows:
+            moment = row[1]
+            if isinstance(moment, datetime):
+                events.append((str(row[0]), moment))
+        return open_failure_count(events, now=now, window_seconds=window_seconds)
 
     def recent_ticks(self) -> tuple[tuple[str, str, str], ...]:
         engine = create_database_engine(self._settings)
