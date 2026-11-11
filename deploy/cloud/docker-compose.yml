@@ -1,0 +1,18 @@
+# Design only. `docker compose up` starts nothing because the service is behind
+# the manual profile. Do not pass --profile manual, and do not point this file
+# at a cloud provider. Database URLs and tokens are not written here.
+
+name: cyvora-design
+
+services:
+  api:
+    profiles: ["manual"]
+    build:
+      context: ../..
+      dockerfile: deploy/cloud/Dockerfile
+    network_mode: none
+    environment:
+      CYVORA_ENVIRONMENT: local
+      CYVORA_EXECUTION_MODE: READ_ONLY
+      CYVORA_API_HOST: 127.0.0.1
+      CYVORA_API_PORT: "8787"

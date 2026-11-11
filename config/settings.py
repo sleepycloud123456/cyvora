@@ -20,8 +20,8 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.7.0"
-PHASE = "7"
+APP_VERSION = "0.8.0"
+PHASE = "8"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     radar_kline_resolution: Literal["1m", "5m", "15m", "1h"] = "1m"
     radar_kline_lookback_seconds: int = Field(default=7200, ge=300, le=86400)
     radar_market_retention_days: int = Field(default=90, ge=7, le=3650)
+    worker_stale_after_seconds: int = Field(default=900, ge=60, le=86400)
+    worker_restart_limit: int = Field(default=2, ge=0, le=10)
+    backup_dir: Path = Path("backups")
+    diagnostics_dir: Path = Path("diagnostics")
+    backup_files_kept: int = Field(default=7, ge=1, le=100)
+    log_retention_days: int = Field(default=14, ge=1, le=3650)
+    auth_failure_limit: int = Field(default=8, ge=3, le=50)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -181,6 +188,13 @@ class Settings(BaseSettings):
                 "reads for CYVORA_RADAR_ANALYSE_LIMIT tokens."
             )
         return self
+
+    @field_validator("backup_dir", "diagnostics_dir")
+    @classmethod
+    def require_relative_runtime_dir(cls, value: Path) -> Path:
+        if value.is_absolute() or ".." in value.parts:
+            raise ValueError("Backup and diagnostic directories must stay inside the workspace.")
+        return value
 
     @field_validator("log_level")
     @classmethod

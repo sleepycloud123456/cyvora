@@ -66,6 +66,21 @@ def test_terminal_revision_keeps_live_trading_and_telegram_off() -> None:
     assert "telegram_delivery IS false" in source
 
 
+def test_operations_revision_keeps_wallet_and_cloud_locked() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261111_0007_operations.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0007_operations"' in source
+    assert 'down_revision: str | None = "0006_terminal"' in source
+    assert "ck_operation_recoveries_wallet" in source
+    assert "ck_operation_recoveries_flat" in source
+    assert "ck_operation_workers_cloud" in source
+    assert "ck_operation_workers_live" in source
+    assert "auth_events" in source
+    assert "token" not in source.lower()
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -76,5 +91,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0006_terminal" in result.stdout
+    assert "0007_operations" in result.stdout
     assert "postgresql" not in result.stdout.lower()

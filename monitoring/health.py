@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from config.settings import APP_NAME, APP_VERSION, PHASE, Settings
 from database.connection import check_database
 from domain.status import ComponentStatus, StatusSnapshot
+from operations.status import operation_components
 
 logger = logging.getLogger("cyvora.health")
 
@@ -30,6 +31,7 @@ def collect_status(settings: Settings, *, probe_backend: bool) -> StatusSnapshot
     """
 
     database = check_database(settings)
+    workers, market_data, queue, websocket = operation_components(settings)
     if probe_backend:
         backend = probe_backend_http(settings)
     else:
@@ -51,6 +53,10 @@ def collect_status(settings: Settings, *, probe_backend: bool) -> StatusSnapshot
         database=database,
         backend=backend,
         gmgn=gmgn_configuration_status(settings),
+        workers=workers,
+        market_data=market_data,
+        queue=queue,
+        websocket=websocket,
     )
 
 

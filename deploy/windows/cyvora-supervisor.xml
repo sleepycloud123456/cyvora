@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>CYVORA local supervisor template. This file is not registered. Paper or read-only only.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>2026-11-11T00:00:00</StartBoundary>
+      <Enabled>false</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Settings>
+    <Enabled>false</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>uv</Command>
+      <Arguments>run python -m operations.startup --ticks 0 --interval-seconds 120</Arguments>
+    </Exec>
+  </Actions>
+</Task>

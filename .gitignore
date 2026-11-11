@@ -25,6 +25,9 @@ htmlcov/
 
 # Local runtime data
 logs/
+backups/
+diagnostics/
+*.dump
 *.log
 *.sqlite
 *.sqlite3

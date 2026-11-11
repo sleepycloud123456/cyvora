@@ -19,7 +19,7 @@ def test_foundation_modules_import() -> None:
 
     assert callable(apps.api.main.create_app)
     assert callable(apps.desktop.main.main)
-    assert config.settings.PHASE == "7"
+    assert config.settings.PHASE == "8"
     assert callable(integrations.gmgn.GMGNClient)
     assert callable(database.connection.check_database)
     assert callable(monitoring.health.collect_status)

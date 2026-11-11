@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,3 +27,27 @@ class StatusSnapshot:
     database: ComponentStatus
     backend: ComponentStatus
     gmgn: ComponentStatus
+    workers: ComponentStatus = field(
+        default_factory=lambda: ComponentStatus(
+            "not_running",
+            "No supervised worker has reported a heartbeat.",
+        )
+    )
+    market_data: ComponentStatus = field(
+        default_factory=lambda: ComponentStatus(
+            "not_checked",
+            "Stored market-data freshness has not been read.",
+        )
+    )
+    queue: ComponentStatus = field(
+        default_factory=lambda: ComponentStatus(
+            "idle",
+            "No external queue is configured.",
+        )
+    )
+    websocket: ComponentStatus = field(
+        default_factory=lambda: ComponentStatus(
+            "not_configured",
+            "No websocket server is configured.",
+        )
+    )

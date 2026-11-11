@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from apps.api.errors import unexpected_error_response
 from apps.api.routes.health import router as health_router
+from apps.api.routes.operations import router as operations_router
 from apps.api.routes.radar import router as radar_router
 from apps.api.routes.simulation import router as simulation_router
 from apps.api.routes.terminal import router as terminal_router
@@ -18,6 +19,8 @@ from config.settings import APP_NAME, APP_VERSION, Settings, assert_runtime_safe
 from database.repositories.trading import restore_strategies
 from monitoring.health import log_startup
 from monitoring.logging import configure_logging
+from operations.auth_audit import AuthGate
+from operations.recovery import startup_recovery
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -30,12 +33,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title=f"{APP_NAME} API", version=APP_VERSION)
     app.state.settings = active
     app.state.radar_lock = asyncio.Lock()
+    app.state.auth_gate = AuthGate(limit=active.auth_failure_limit)
     app.include_router(health_router)
     app.include_router(radar_router)
     app.include_router(trading_router)
     app.include_router(simulation_router)
     app.include_router(terminal_router)
+    app.include_router(operations_router)
     restore_strategies(active)
+    app.state.recovery = startup_recovery(active)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:

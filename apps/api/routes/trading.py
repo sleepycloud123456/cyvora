@@ -23,6 +23,7 @@ from domain.exceptions import (
     TradingDisabled,
     TradingValidationError,
 )
+from domain.operations import RecoveryReport
 from domain.shield import (
     EmergencyEvidence,
     ExitKind,
@@ -437,6 +438,12 @@ def stop_strategy(strategy_id: str, request: Request, settings: SettingsDep) -> 
 def submit_paper_order(body: OrderBody, request: Request, settings: SettingsDep) -> OrderModel:
     """Store one explicit paper order. The price is the caller's reference price."""
 
+    recovery = getattr(request.app.state, "recovery", None)
+    if isinstance(recovery, RecoveryReport) and recovery.entries_blocked:
+        raise HTTPException(
+            status_code=409,
+            detail="Paper entries are blocked until recovery completes. No order was submitted.",
+        )
     manager, _gateway = _services(request, settings)
     request_order = PaperOrderRequest(
         strategy_id=body.strategy_id,
