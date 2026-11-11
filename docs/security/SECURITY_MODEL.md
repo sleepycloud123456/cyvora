@@ -1,6 +1,6 @@
 # Security model
 
-Phase 3 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 4 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
@@ -11,7 +11,8 @@ Phase 3 scope. This document describes controls that exist in the repository tod
 | GMGN API key | `GMGN_API_KEY`, or `CYVORA_GMGN_API_KEY` | `SecretStr`. Logs, `repr`, and `model_dump` do not show the value. Health reports `configured` or `not_configured`. |
 | Application status | Memory | Returned by `/health` and shown in the terminal. |
 | Market data | GMGN read-only calls, then PostgreSQL | Stored as radar history and shown from that store. Not invented when the store is empty. |
-| Wallet keys and orders | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
+| Paper orders and positions | PostgreSQL | Explicit simulated rows. `shield_decision` is `not_authorized`. |
+| Wallet keys | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
 
 ## Credentials
 
@@ -25,7 +26,9 @@ Agents must not print the environment and must not open `.env`.
 
 `ExecutionMode` contains `READ_ONLY` and `PAPER` only. The settings validator rejects `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` before the process starts. `assert_runtime_safe` repeats that check. `live_trading_enabled` in the health payload is the constant `false`.
 
-There is no signer and no transaction builder. `GMGNExecutionGateway.submit` raises `GMGNExecutionBlocked` and does not open a socket. `GET /v1/user/wallet_holdings` raises before HTTP because the official client signs it.
+There is no signer and no transaction builder. `GMGNExecutionGateway.submit` raises `GMGNExecutionBlocked` and does not open a socket. `refuse_live_execution` raises before a store write. `GET /v1/user/wallet_holdings` raises before HTTP because the official client signs it.
+
+`PAPER` may store a simulated order. The gateway rejects a request that sets `shield_approved`. Read-only mode stores no order. The order table's check constraints reject a live state, a non-paper mode, and any shield value other than `not_authorized`. The Nautilus proof uses `BacktestEngine` only. It does not register a live execution client.
 
 ## Local API
 
@@ -33,7 +36,7 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 - `0.0.0.0` and other non-loopback hosts fail validation.
 - CORS is not enabled.
 - `/health` is unauthenticated because it exposes only process status.
-- `/radar/latest`, `/radar/cycles`, and `/radar/watchlist` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token.
+- `/radar` and `/trading` require `Authorization: Bearer` matching `CYVORA_API_TOKEN` (at least 16 characters). The comparison hashes both sides before `compare_digest`. A missing token is HTTP 503. A wrong token is HTTP 401 and the body does not echo the expected token.
 - The desktop does not send that token. It reads PostgreSQL on the worker threads.
 - Unexpected exceptions return `{"detail": "Internal server error"}`. The exception string is not logged.
 
@@ -41,15 +44,15 @@ There is no signer and no transaction builder. `GMGNExecutionGateway.submit` rai
 
 Alembic will not connect when the URL is unset. Connection failures return a fixed sentence. The SQLAlchemy engine is created with `NullPool` for the check and is disposed immediately. Echo is left off so statements are not printed.
 
-`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. Neither inserts a secret or grants remote access.
+`0001_application_metadata` creates the metadata table. `0002_radar_intelligence` creates the radar history tables. `0003_trading_infrastructure` creates the paper ledger. None of them inserts a secret or grants remote access.
 
 ## Audit
 
-Radar cycle saves and watchlist adds or removals insert `audit_events` with an action, a result, and a subject such as `sol:<address>`. The detail is a fixed sentence. It does not store the API key or the database URL. Trade intents and emergency stops are not recorded yet because those actions do not exist.
+Radar cycle saves and watchlist adds or removals insert `audit_events` with an action, a result, and a subject such as `sol:<address>`. Paper orders insert `trading_order_events` with the state and a fixed note. The note records `TradeIntentCreated` and `ExecutionConfirmed` as simulator events. It does not store the API key, the database URL, or a signature. Emergency stops are not recorded yet because Shield is not implemented.
 
 ## Fail-safe defaults
 
-- No execution.
+- No chain execution. Paper mode can store a simulated order only.
 - No automatic credential creation.
 - No public listen address.
 - No cloud deployment.

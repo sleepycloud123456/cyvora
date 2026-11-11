@@ -44,6 +44,6 @@ Review the diff before accepting it. Check that no `.env`, log, or virtual envir
 - A global change to Cursor settings, extensions, or the model list.
 - Wallet operations and unrestricted terminal permissions.
 
-## Continue after Phase 3
+## Continue after Phase 4
 
-PostgreSQL 17 is installed. The GMGN client is read-only, and radar stores scored cycles in PostgreSQL. The next engineering task is Phase 4 only after an explicit request. Phase 4 is trading infrastructure in simulation. It is not a swap, a signer, or a wallet binding experiment.
+PostgreSQL 17 is installed. The GMGN client is read-only, radar stores scored cycles, and Phase 4 stores explicit paper orders. The next engineering task is Phase 5 only after an explicit request. Phase 5 is the Shield risk engine. It is not a swap, a signer, or a wallet binding experiment.

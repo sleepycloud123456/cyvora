@@ -36,13 +36,18 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     assert window.windowTitle() == "CYVORA Terminal"
     assert window.mode_badge.text() == "READ-ONLY"
     assert "not available" in window.dashboard.notice.text()
-    matches = window.navigation.findItems("Strategies", Qt.MatchFlag.MatchExactly)
+    matches = window.navigation.findItems("Risk Management", Qt.MatchFlag.MatchExactly)
     assert matches
     window.navigation.setCurrentItem(matches[0])
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.placeholder)
-    assert window.page_title.text() == "Strategies"
+    assert window.page_title.text() == "Risk Management"
     assert "Placeholder" in window.placeholder.body.text()
-    assert "Phase 3" in window.placeholder.body.text()
+    assert "Phase 4" in window.placeholder.body.text()
+    strategy_matches = window.navigation.findItems("Strategies", Qt.MatchFlag.MatchExactly)
+    window.navigation.setCurrentItem(strategy_matches[0])
+    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.strategies)
+    assert "not configured" in window.strategies.notice.text()
+    assert window.strategies.table.rowCount() == 0
 
 
 def test_navigation_stays_responsive(qtbot) -> None:  # type: ignore[no-untyped-def]

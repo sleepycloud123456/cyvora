@@ -21,3 +21,11 @@ class DatabaseUnavailableError(CyvoraError):
 
 class RadarNotConfigured(CyvoraError):
     """A radar cycle was requested without the database or the GMGN key."""
+
+
+class TradingDisabled(CyvoraError):
+    """Simulated or live execution was refused before any order was stored."""
+
+
+class TradingValidationError(CyvoraError):
+    """An order or strategy request contradicts the paper rules."""

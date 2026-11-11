@@ -11,11 +11,11 @@ Read `PROJECT_STATUS.md` before starting work. Do not begin the next roadmap pha
 
 Boundaries already in the code:
 
-- The PySide6 desktop presents status and stored radar rows. Network, database, and GMGN calls stay off the UI thread.
-- Radar scores do not authorize an order. Unknown security data is not safe.
+- The PySide6 desktop presents status, stored radar rows, and stored paper orders. Network, database, and GMGN calls stay off the UI thread.
+- Radar scores do not authorize an order. A paper fill is not a chain confirmation. Unknown security data is not safe.
 - The API binds to loopback only and starts in `READ_ONLY` or `PAPER`.
 - PostgreSQL is the application database. Do not silently substitute SQLite.
-- NautilusTrader is not installed. Do not mix 1.x examples with 2.x code.
+- NautilusTrader 1.231.0 is installed. Do not add a 2.x pre-release or mix its examples with 1.231.0.
 - `integrations/gmgn` is read-only. Do not add a swap, a signature, or a call that is absent from `docs/integrations/GMGN_API_RESEARCH.md`.
 
 Do not present placeholder screens or mock payloads as live market, wallet, or exchange data.

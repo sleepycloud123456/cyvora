@@ -24,20 +24,13 @@ The uv-managed CPython 3.13.18 is a normal CPython, which matches the Nautilus p
 
 uv 0.13.7 is installed and the prompt's tree includes `uv.lock`. uv creates `.venv`, locks direct and transitive versions, and can see the existing 3.13.18 interpreter. pip-tools would be a second resolver beside a tool the machine already has.
 
-## NautilusTrader is not installed yet
+## NautilusTrader 1.231.0
 
-Phase 1 does not import or configure the trading engine. Installing a 45 MB native wheel before there is an adapter would not verify the Solana mapping, and the prompt says not to install a release candidate into a production-intended environment without an explicit tradeoff.
+Phase 1 recorded the candidate and did not install it. On 2026-11-11 PyPI still lists 1.231.0 as the newest stable release. `2.0.0` final is not published. The `2.0.0rc*` builds stay rejected.
 
-Recorded candidate for a later proof of concept:
+`uv add nautilus_trader==1.231.0` installed the Windows cp313 wheel into this project's environment. `import nautilus_trader` reports `1.231.0` on Windows 11 Home. The official CI host remains Windows Server 2022. WSL2 is still unavailable because virtualization is disabled, so the desktop and the engine both stay on native Windows.
 
-- Stable package: `nautilus_trader` 1.231.0.
-- Wheel: `nautilus_trader-1.231.0-cp313-cp313-win_amd64.whl`.
-- A 2026-11-10 dry run on CPython 3.13.18 resolved that version and did not install it.
-- Rejected for now: `2.0.0rc9` and every `2.0.0rc*` build. They are pre-releases, and their API is not the 1.x API.
-
-Tradeoff: Phase 4 must re-read the installation page. If 2.0.0 final has shipped by then, the candidate changes and the 1.x notes must not be reused as examples. If the 1.231.0 wheel fails to import on Windows 11 Home, that is new evidence. The official CI host is Windows Server 2022, not Windows 11 Home. WSL2 is not a fallback today: this PC reports that virtualization is disabled, so WSL2 cannot start.
-
-The desktop stays a native PySide6 application either way.
+The Solana mapping is in `docs/trading/NAUTILUS_MAPPING.md`. CYVORA keeps paper orders in its own ledger. Nautilus `BacktestEngine` is used to prove what 1.231.0 can represent. A `CurrencyPair` is a synthetic spot instrument, not a swap. Prices that need more than 9 decimal places are not forced into the engine. No live data client or live execution client is registered.
 
 ## PySide6 for the shell
 
@@ -85,4 +78,12 @@ The free-plan limiter stops after five waits when its clock does not move. A flo
 
 ## What was left out on purpose
 
-Empty directories for Shield, strategies, Telegram, backtesting, and cloud deployment are not created. The GMGN package does not contain a swap or a signer. Radar does not call `/v1/user/smartmoney`, holder wallet activity, or any trade route.
+Empty directories for Shield, signal strategies, Telegram, backtesting, and cloud deployment are not created. The GMGN package does not contain a swap or a signer. Radar does not call `/v1/user/smartmoney`, holder wallet activity, or any trade route.
+
+## Paper execution stays outside Nautilus
+
+Date: 2026-11-11.
+
+The master tree names `trading/nautilus`, `trading/execution`, `trading/portfolio`, and `trading/strategies`. Phase 4 uses those packages for the mapping, the paper gateway, position accounting, and a strategy registry. It does not add `momentum.py` or the other signal modules. There is no second trading process. The API and the desktop call the same repository.
+
+A paper fill price is the caller's reference price plus a caller-supplied quote slippage. That is not a pool-impact model. Shield is not called, and the stored decision stays `not_authorized`. The database check constraint rejects live order states, `simulated = false`, and any shield value other than `not_authorized`.

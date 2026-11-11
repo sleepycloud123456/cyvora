@@ -20,11 +20,14 @@ from apps.desktop.pages.dashboard_page import DashboardPage
 from apps.desktop.pages.health_page import HealthPage
 from apps.desktop.pages.placeholder_page import PlaceholderPage
 from apps.desktop.pages.radar_page import RadarPage
+from apps.desktop.pages.trading_page import TradingPage
 from apps.desktop.services.probe import StatusProbe
 from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
+from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.status import StatusSnapshot
+from domain.trading import TradingSnapshot
 from intelligence.schedule import next_delay_seconds
 from intelligence.store import CycleSnapshot
 
@@ -40,6 +43,7 @@ class MainWindow(QMainWindow):
         self._radar_load: RadarLoadWorker | None = None
         self._radar_cycle: RadarCycleWorker | None = None
         self._watch_worker: WatchWorker | None = None
+        self._trading_load: TradingLoadWorker | None = None
         self._cycle_generation = 0
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
@@ -120,6 +124,9 @@ class MainWindow(QMainWindow):
         self.analysis = RadarPage("analysis")
         self.smart_money = RadarPage("smart")
         self.whales = RadarPage("whale")
+        self.positions = TradingPage("positions")
+        self.orders = TradingPage("orders")
+        self.strategies = TradingPage("strategies")
         self.scanner.run_button.clicked.connect(self._start_cycle)
         self.scanner.continuous.toggled.connect(self._continuous_toggled)
         self.scanner.watch_add.connect(self._add_watch)
@@ -129,6 +136,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.placeholder)
         for page in self._radar_pages():
             self.stack.addWidget(page)
+        for trading_page in (self.positions, self.orders, self.strategies):
+            self.stack.addWidget(trading_page)
         layout.addWidget(self.page_title)
         layout.addWidget(self.stack, stretch=1)
         return content
@@ -158,6 +167,15 @@ class MainWindow(QMainWindow):
         }.get(name)
         if radar is not None:
             self.stack.setCurrentWidget(radar)
+            return
+        trading = {
+            "Open Positions": self.positions,
+            "Trade History": self.orders,
+            "Strategies": self.strategies,
+        }.get(name)
+        if trading is not None:
+            self.stack.setCurrentWidget(trading)
+            self._load_trading()
             return
         self.placeholder.show_page(name)
         self.stack.setCurrentWidget(self.placeholder)
@@ -189,10 +207,40 @@ class MainWindow(QMainWindow):
         if probe is not None and probe.isRunning():
             probe.requestInterruption()
             probe.wait(4000)
-        for worker in (self._radar_load, self._radar_cycle, self._watch_worker):
+        for worker in (
+            self._radar_load,
+            self._radar_cycle,
+            self._watch_worker,
+            self._trading_load,
+        ):
             if worker is not None and worker.isRunning():
                 worker.requestInterruption()
                 worker.wait(4000)
+
+    def _load_trading(self) -> None:
+        if not self._settings.database_url:
+            message = "Trading storage is not configured. No simulated orders are shown."
+            for page in (self.positions, self.orders, self.strategies):
+                page.show_message(message)
+            return
+        if self._trading_load is not None and self._trading_load.isRunning():
+            return
+        self._trading_load = TradingLoadWorker(self._settings)
+        self._trading_load.loaded.connect(self._apply_trading)
+        self._trading_load.failed.connect(self._trading_message)
+        self._trading_load.start()
+
+    def _apply_trading(self, snapshot: object) -> None:
+        if self._closing or not isinstance(snapshot, TradingSnapshot):
+            return
+        for page in (self.positions, self.orders, self.strategies):
+            page.show_snapshot(snapshot)
+
+    def _trading_message(self, text: str) -> None:
+        if self._closing:
+            return
+        for page in (self.positions, self.orders, self.strategies):
+            page.show_message(text)
 
     def _radar_pages(self) -> tuple[RadarPage, ...]:
         return (

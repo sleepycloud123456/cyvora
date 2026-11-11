@@ -4,78 +4,81 @@ Date: 2026-11-11.
 
 ## Current phase
 
-Phase 3 — CYVORA Radar and intelligence. The definition of done for this phase is met. Phase 4 has not started.
+Phase 4 — CYVORA Core trading infrastructure. The definition of done for this phase is met for the simulation boundary below. Phase 5 has not started.
 
 ## Current milestone
 
-CYVORA can discover Solana tokens from GMGN, score them with a documented read-only rubric, and store the cycle in PostgreSQL. The terminal and the loopback API show that store. A score does not authorize an order.
+CYVORA can store an explicit paper order, account for the resulting position, reconcile it, and register a strategy slot. NautilusTrader 1.231.0 can represent a Solana mint as a synthetic spot pair when the scale fits in 9 decimals, and its backtest engine can fill, partially fill, or deny that order offline. A score still does not authorize an order. A paper confirmation is not a chain confirmation.
 
 ## Completed work
 
 - Phase 1 foundation, merged as PR #1.
 - Phase 2 read-only GMGN client, merged as PR #2 (`4c48ad7`).
-- Phase 3 radar cycle in `intelligence/`, revision `0002_radar_intelligence`, authenticated `/radar` routes, and terminal pages for the scanner, trending, launches, analysis, smart money, and whales.
-- Alembic head on this machine is `0002_radar_intelligence`.
-- One live read-only cycle was stored as cycle 1. See Tests.
+- Phase 3 radar cycle, merged as PR #3 (`e9ffb3c`).
+- Phase 4 paper ledger in `trading/`, revision `0003_trading_infrastructure`, authenticated `/trading` routes, and terminal pages for positions, trade history, and strategies.
+- NautilusTrader 1.231.0 installed with uv. The mapping and the offline proof are in `docs/trading/NAUTILUS_MAPPING.md`.
 
 ## In progress
 
-Nothing inside Phase 3.
+Nothing inside Phase 4.
 
 ## Blockers
 
-None for Phase 3. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused.
+None for the paper boundary. Live trading is still disabled. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client.
 
 ## Tests
 
-Final run on 2026-11-11, after the rate-limiter fix and the live cycle:
+Final run on 2026-11-11:
 
 - `uv run ruff check .` — passed.
-- `uv run ruff format --check .` — 120 files already formatted.
-- `uv run mypy` — no issues in 81 source files.
-- `uv run pytest -rs` — 69 passed, 2 skipped.
+- `uv run ruff format --check .` — 148 files already formatted.
+- `uv run mypy` — no issues in 106 source files.
+- `uv run pytest -rs` — 87 passed, 2 skipped.
 - Skips: `tests/integration/test_gmgn_live_smoke.py` unless `CYVORA_GMGN_LIVE_SMOKE=1`, and `tests/integration/test_radar_live.py` unless `CYVORA_RADAR_LIVE=1`.
 - Desktop smoke: `CYVORA_DESKTOP_SMOKE_OK python=3.13.18 mode=READ-ONLY database=reachable backend=offline gmgn=configured`.
-- Live cycle: `uv run python scripts/radar_cycle.py` printed `RADAR_CYCLE_OK`, `cycle_id=1`, `status=partial`, `weight_used=30`, `requests=13`, `trending=3`, `launches=3`, `analysed=1`, `rate_limit_hits=7`, `error_code=none`, `entry=not_authorized`. The stored row was symbol Rockstar, decision CAUTION, score 60.85, security CAUTION, liquidity observed, smart money observed, whales observed. No API key or database URL was printed.
+- Alembic on this machine: `0002_radar_intelligence` upgraded to `0003_trading_infrastructure`.
 
-The partial status is the free-plan bucket. Holder and trader reads are weight 5, the same as the free capacity. After the first token's core reads, GMGN returned rate-limit errors and the rest of that cycle failed the same way. The cycle now stops sending after the first rate-limit response. That behavior is covered by `test_cycle_stops_sending_after_a_rate_limit`. The stored cycle 1 was made before that stop, so its note lists seven rate-limit failures.
+The Nautilus proof asserts `FILLED` for the full book, `CANCELED` with filled `5.000000` for the IOC partial, and `DENIED` with filled `0.000000` when cash is `0.000000001` SOL. No API key or database URL is printed.
 
 ## Known limitations
 
-- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live calls use Windows `curl.exe`.
-- The free plan is 5 tokens of capacity refilled at 5 per second. A weight-5 holder or trader read needs a full bucket. The cycle gives those reads up only while budget remains, and it stops the cycle if the server rate-limits.
-- The local limiter stops after five waits when the clock does not move. A float Unix timestamp cannot represent a sub-ulp sleep, which previously hung the mocked cycle.
-- Smart money is GMGN wallet-tag counts. `/v1/user/smartmoney` is not called. Whale rows are tag counts and holder concentration, not a trade feed.
-- Price impact is not computed. The quote route stays refused. `burn_status` is not treated as locked liquidity. Unknown security is not safe.
-- The liquidity number is scored with fixed bands. Phase 2 did not prove the unit is USD. Rank changes are used by sign only.
-- The terminal repeat checkbox waits the configured interval (default 120 seconds, longer after a partial cycle). Nothing starts a cycle by itself.
-- Pages other than Dashboard, System Health, and the six radar pages are placeholders.
-- NautilusTrader is not a dependency. The stable candidate remains 1.231.0.
+- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged.
+- Nautilus 1.231.0 on this wheel has fixed precision 9. A wider price stays in CYVORA `Decimal` and is not rounded into a Nautilus price.
+- A `CurrencyPair` is a synthetic spot instrument. It is not a Solana swap. `OrderSubmitted` inside the backtest is not a signed transaction.
+- GMGN candles do not become bid/ask quotes. Candle volume is not treated as a base size.
+- Paper slippage and fees are amounts the caller supplies. There is no pool-impact, latency, or cost model.
+- Shield is not implemented. Every paper order stores `shield_decision = not_authorized`.
+- The strategy registry does not generate signals. The API sets `RUNNING` strategies to `STOPPED` on startup. The desktop does not start them.
+- No Solana RPC, account inspection, or chain confirmation client is included.
+- `2.0.0` final was not on PyPI on 2026-11-11. The `2.0.0rc*` builds are not installed.
+- Pages other than Dashboard, System Health, the six radar pages, Open Positions, Trade History, and Strategies are placeholders.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
 
 ## Security
 
-- Live mode names are rejected. Radar `entry_consideration` is `not_authorized`.
-- `GMGN_PRIVATE_KEY` is not loaded. Logs and errors redact `GMGN_API_KEY` and the database password.
-- `/radar` requires `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
+- Live mode names are rejected. Paper confirmation does not enable them.
+- `GMGN_PRIVATE_KEY` is not loaded. The paper path does not call `GMGNExecutionGateway` or a live Nautilus execution client.
+- `/radar` and `/trading` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
 - `.env` is gitignored. The example file contains placeholders only.
 
 ## Exact next actions
 
-1. Do not start Phase 4 until the user asks.
-2. Do not add a signing key or call a swap. Wallet binding is a separate decision.
-3. Phase 4, when requested, is simulation trading infrastructure. It is not live execution.
+1. Do not start Phase 5 until the user asks.
+2. Do not add a signing key, an RPC provider, or a swap. Wallet binding is a separate decision.
+3. Phase 5, when requested, is the Shield risk engine. It is not live execution.
 
-## Phase 3 checklist
+## Phase 4 checklist
 
 | Done criterion | Result |
 |---|---|
-| Trending and new-launch discovery | Live cycle: 3 trending, 3 launches. Routes are the Phase 2 rank and trenches reads. |
-| Security, liquidity, indicators | Stored on the analysed token. Rubric in `docs/intelligence/SCORING.md`. |
-| Smart money and whales | Tag counts and holder concentration from the same reads. No copied trades. |
-| Opportunity score and rank | Deterministic weighted score. Entry stays `not_authorized`. |
-| Historical storage | Revision `0002_radar_intelligence` applied. Rows are inserts. |
-| Watchlists | API and terminal can add and deactivate a watch. Removal keeps the row. |
-| Terminal and API read the store | Scanner and the other radar pages show the stored cycle or an empty state. `/radar` is authenticated. |
-| No swaps or transactions | Trade routes refused before HTTP. Intelligence source has no trade path. |
-| Phase 4 not started | NautilusTrader is not installed. No strategy or order package. |
+| NautilusTrader integration verified | 1.231.0 imports on this Windows 11 PC. Three offline backtest cases pass. |
+| Instrument definitions | Mint, symbol, and scales. Projection stops above 9 decimals. |
+| Solana data adapters | Supplied observations and GMGN candles become contracts. No RPC. |
+| Market-data contracts | Missing bid, ask, and size stay missing. |
+| Execution gateway interface | Paper submit, read-only refusal, and live refusal. |
+| Order state management | Paper path plus `UNKNOWN` from reconciliation. Live states are rejected. |
+| Position accounting | Decimal average, cost, realized result, and optional unrealized mark. |
+| Strategy manager | Register, start, stop, and route an explicit intent. No signal logic. |
+| Execution reconciliation | Match, conflict, or unknown. A mismatch does not retry or rewrite the position. |
+| Simulation only | Tests show paper mode cannot submit a real transaction. |
+| Phase 5 not started | No Shield engine, no position sizing, and no emergency stop. |

@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, and a Phase 3 radar that stores scored tokens. The desktop shows stored radar rows after a cycle. It does not show balances or orders, and it does not invent rows when none are stored.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, and a Phase 4 paper ledger. The desktop shows stored radar rows and stored simulated orders. It does not invent rows when none are stored.
 
 Live trading is not implemented.
 
@@ -14,9 +14,10 @@ Slogan: TRADE BEYOND LIMITS.
 - A PySide6 terminal with branding, navigation, and application, database, backend, and GMGN configuration status.
 - A read-only GMGN client for market and token research. Trade and signing routes are refused.
 - Radar discovery, security, liquidity, indicators, smart-money and whale tag counts, a documented score, rankings, watchlists, and PostgreSQL history.
+- A paper execution gateway, order states, position accounting, a strategy registry, and a NautilusTrader 1.231.0 mapping proof. Simulated orders stay `not_authorized`.
 - Cursor project rules and `AGENTS.md`.
 
-Dashboard, System Health, and the radar pages are implemented. Other pages are labeled placeholders. They do not contain sample trades.
+Dashboard, System Health, the radar pages, Open Positions, Trade History, and Strategies are implemented. Other pages are labeled placeholders. They do not contain sample trades.
 
 ## Prerequisites
 
@@ -79,7 +80,7 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-PostgreSQL 17 is installed. `uv run alembic upgrade head` applies `0001_application_metadata` and `0002_radar_intelligence`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0003_trading_infrastructure`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
 One stored radar cycle, when the key and the database are both configured:
 
@@ -99,6 +100,7 @@ The script prints counts, symbols, and `entry=not_authorized`. It does not print
 - `LIVE`, `LIVE_LOCKED`, and `LIVE_AUTHORIZED` are rejected.
 - Logs and health payloads omit database passwords, the GMGN key, and exception text that could contain either.
 - The GMGN client does not sign and does not submit a transaction.
+- Paper orders are simulated records. They do not call a swap or a signer.
 
 Details are in [Security model](docs/security/SECURITY_MODEL.md).
 

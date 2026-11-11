@@ -38,25 +38,20 @@ The project interpreter is 3.13.18. `pyproject.toml` requires `>=3.13,<3.14`, an
 
 ## NautilusTrader
 
-Sources checked on 2026-11-10:
+Sources rechecked on 2026-11-11:
 
-- Installation guide: https://nautilustrader.io/docs/latest/getting_started/installation/
-- PyPI project `nautilus_trader`, stable release 1.231.0.
+- PyPI project `nautilus_trader`. The newest stable release is 1.231.0. `2.0.0` final is not on PyPI. Pre-releases `2.0.0rc3` through `2.0.0rc9` are present and unused.
+- The 1.231.0 wheel `nautilus_trader-1.231.0-cp313-cp313-win_amd64.whl` requires Python `>=3.12,<3.15`.
 
-Findings:
+`uv add nautilus_trader==1.231.0` installed that wheel. `uv run python -c "import nautilus_trader"` prints `1.231.0` on this Windows 11 Home machine. The official CI host is Windows Server 2022, not Windows 11 Home. The mapping and the three offline backtest cases are in `docs/trading/NAUTILUS_MAPPING.md`.
 
-- The stable PyPI release is still 1.x. Version 1.231.0 requires Python `>=3.12,<3.15` and publishes `nautilus_trader-1.231.0-cp313-cp313-win_amd64.whl`.
-- PyPI also lists pre-releases `2.0.0rc3` through `2.0.0rc9`. The current documentation describes 2.x and tells installers to pass `--pre`. The project states that 1.x and 2.x Python APIs differ, and that release candidates are not recommended for a production-intended environment.
-- Official platform support lists Windows Server 2022 and later, x86_64, tested on `windows-2022`. Windows 11 Home is not in that list. The same guide says other platforms may work but are not the CI targets.
-- PyPI wheels target Python 3.13 and 3.14. Python 3.15 needs a source build or a development wheel.
-- A dry run of `uv pip install nautilus_trader==1.231.0` with CPython 3.13.18 resolved `nautilus-trader==1.231.0` and 13 dependencies. Nothing from that dry run was installed.
-- NautilusTrader is not imported by Phase 1 and is not in `uv.lock`.
+The installed wheel's fixed precision is 9. `uvloop` is not installed; it is not required on Windows.
 
 ## PostgreSQL
 
 PostgreSQL 17.11 is installed as the Windows service `postgresql-x64-17`. The service was Running, with start type Automatic, on 2026-11-11. `psql` is not on `PATH`. The binary is `C:\Program Files\PostgreSQL\17\bin\psql.exe`.
 
-A local `cyvora` role and database exist. `CYVORA_DATABASE_URL` is set in the gitignored `.env`. Alembic current and head are both `0001_application_metadata`. The desktop smoke reports the database as `reachable`. Do not print the URL or the password.
+A local `cyvora` role and database exist. `CYVORA_DATABASE_URL` is set in the gitignored `.env`. Alembic head is `0003_trading_infrastructure` after Phase 4. The desktop smoke reports the database as `reachable` when the local server answers. Do not print the URL or the password.
 
 Docker is still not installed. Do not point this project at a hosted database.
 
@@ -83,4 +78,4 @@ Docker is still not installed. Do not point this project at a hosted database.
 | pytest-qt | 4.5.0 |
 | ruff | 0.17.4 |
 
-Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. `httpx2` 2.16.0 is also a runtime dependency because the GMGN client uses it for mocked tests and for non-Windows transports. Live Windows calls use the operating-system curl instead. Transitive pins are in `uv.lock`. NautilusTrader is not in the lockfile.
+On 2026-11-11 the same environment also contains `cyvora` 0.4.0 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.
