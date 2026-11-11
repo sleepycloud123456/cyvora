@@ -39,10 +39,18 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     matches = window.navigation.findItems("Portfolio", Qt.MatchFlag.MatchExactly)
     assert matches
     window.navigation.setCurrentItem(matches[0])
-    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.placeholder)
+    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.portfolio)
     assert window.page_title.text() == "Portfolio"
+    assert "not configured" in window.portfolio.notice.text()
+    assert "not available" in window.dashboard.notice.text()
+    settings_matches = window.navigation.findItems("Settings", Qt.MatchFlag.MatchExactly)
+    window.navigation.setCurrentItem(settings_matches[0])
+    qtbot.waitUntil(lambda: window.stack.currentWidget() is window.settings_page)
+    assert "Live trading is locked" in window.settings_page.live_lock.text()
+    assert window.settings_page.telegram.isEnabled() is False
+    assert window.settings_page.telegram.isChecked() is False
+    window.placeholder.show_page("Unknown")
     assert "Placeholder" in window.placeholder.body.text()
-    assert "Phase 6" in window.placeholder.body.text()
     risk_matches = window.navigation.findItems("Risk Management", Qt.MatchFlag.MatchExactly)
     window.navigation.setCurrentItem(risk_matches[0])
     qtbot.waitUntil(lambda: window.stack.currentWidget() is window.risk)

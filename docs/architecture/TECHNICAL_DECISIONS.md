@@ -98,6 +98,12 @@ The spec also describes wallet equity, SOL reserve, and emergency liquidation-st
 
 A planned stop is not treated as a guaranteed sale. Correlation is shared supplied tags, not an estimated coefficient. The formulas and the initial limits are in `docs/trading/SHIELD.md`.
 
+## The terminal reads stored rows
+
+Date: 2026-11-11.
+
+Phase 7 completes the desktop by reading the stores from Phases 3 through 6. Verified equity is the Shield baseline, not a wallet balance. A missing radar mark is not treated as zero. The analyst is a local explanation of those rows. It has no network client. Notification delivery is local. Telegram stays off because no bot token is loaded, and the schema rejects a true flag. A trading profile can record a signal threshold, and that threshold is not passed to the radar score or to Shield. Pause and resume change only `halt_entries`. They do not submit an order. See `docs/terminal/TERMINAL.md`.
+
 ## The backtest does not use Nautilus
 
 Date: 2026-11-11.

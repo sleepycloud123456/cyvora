@@ -46,4 +46,4 @@ Review the diff before accepting it. Check that no `.env`, log, or virtual envir
 
 ## Continue after Phase 5
 
-PostgreSQL 17 is installed. The GMGN client is read-only, radar stores scored cycles, Phase 4 stores explicit paper orders, Phase 5 stores Shield decisions, and Phase 6 stores simulation reports. The next engineering task is Phase 7 only after an explicit request. Phase 7 is the remaining terminal pages. It is not a swap, a signer, or a wallet binding experiment.
+PostgreSQL 17 is installed. The GMGN client is read-only. Radar, the paper ledger, Shield, and simulation reports are stored. Phase 7 reads those rows on the remaining terminal pages. The next engineering task is Phase 8 only after an explicit request. Phase 8 is long-running local operations and a cloud design. It is not a swap, a signer, or a wallet binding experiment.

@@ -130,3 +130,17 @@ QPushButton#PrimaryButton, QPushButton#SecondaryButton {
 QCheckBox {
     color: #C5D5E0;
 }
+
+QTextEdit, QPlainTextEdit, QScrollArea, QSpinBox {
+    background-color: #0E1626;
+    color: #E6F1F5;
+    border: 1px solid #1E3A4C;
+}
+
+QPushButton#DangerButton {
+    background-color: #3F1D24;
+    color: #F87171;
+    border: 1px solid #7F1D1D;
+    border-radius: 8px;
+    padding: 8px 12px;
+}

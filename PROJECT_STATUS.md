@@ -4,11 +4,11 @@ Date: 2026-11-11.
 
 ## Current phase
 
-Phase 6 — backtesting and paper trading. The definition of done for the simulation boundary below is met. Phase 7 has not started.
+Phase 7 — complete CYVORA Terminal. The definition of done for the pages below is met. Phase 8 has not started.
 
 ## Current milestone
 
-Backtests, walk-forward runs, and strategy comparisons are simulation-only. The paper broker prices fills from a constant-product pool or one displayed book level, then submits every priced order through Shield. A paper approval still cannot enable a live order. Candle close is a mark, not a fill. A missing pool impact is not stored as zero.
+Every sidebar page reads stored radar, paper, Shield, or simulation rows, or it says the row is missing. Portfolio math does not turn a missing mark into zero. The local analyst cannot authorize an order. No control can enable live trading.
 
 ## Completed work
 
@@ -17,26 +17,27 @@ Backtests, walk-forward runs, and strategy comparisons are simulation-only. The 
 - Phase 3 radar cycle, merged as PR #3 (`e9ffb3c`).
 - Phase 4 paper ledger, merged on `main` at `b4fcd8c`.
 - Phase 5 Shield engine, merged on `main` at `b7cfd07`.
-- Phase 6 simulation package in `backtesting/`, revision `0005_simulation`, authenticated `/trading/simulation` routes, and the Backtesting and Paper Trading pages.
+- Phase 6 simulation package, merged on `main` at `8de3e7e`.
+- Phase 7 terminal pages, revision `0006_terminal`, authenticated `/terminal` routes, and the local stored-evidence analyst.
 
 ## In progress
 
-Nothing inside Phase 6.
+Nothing inside Phase 7.
 
 ## Blockers
 
-None for the simulation boundary. Live trading is still disabled. Shield approval does not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client.
+None for the terminal boundary. Live trading is still disabled. A paper approval, a profile, and an analyst finding do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured.
 
 ## Tests
 
-Recorded on 2026-11-11 after the Phase 6 run:
+Recorded on 2026-11-11 after the Phase 7 run:
 
 - `uv run ruff check .` passed.
-- `uv run ruff format --check .` passed (186 files).
-- `uv run mypy` passed (138 source files).
-- `uv run pytest` — 114 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
-- `uv run python -m apps.desktop.main --smoke` returned `CYVORA_DESKTOP_SMOKE_OK` in `READ-ONLY`, with the database reachable and the backend offline.
-- `uv run alembic upgrade head` applied `0005_simulation`. `uv run alembic current` is `0005_simulation (head)`.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 125 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database reachable and backend offline.
+- Alembic upgrade applied `0006_terminal`. `uv run alembic current` is `0006_terminal (head)`.
 
 No API key or database URL is printed.
 
@@ -49,42 +50,53 @@ No API key or database URL is printed.
 - The constant-product impact for a buy equals the fraction of quote reserve spent. It is not a measured Solana AMM fee. The fee is the configured schedule.
 - Displayed depth is one price level. A wide spread is refused when it exceeds the impact cap. It is not tightened to zero.
 - A planned stop is not a guaranteed exit. The broker submits a paper sell through Shield and fills it at the pool or book.
-- Sharpe and Sortino are per-bar and are omitted below 30 return observations. They are not annualized.
+- Sharpe and Sortino are per observation and are omitted below 30 return observations. They are not annualized. The terminal uses the same rule on stored equity changes.
 - Walk-forward windows each start from the same paper equity. They are not one continuous portfolio. Selected parameters are not deployed.
 - The simulation strategies are momentum, breakout, and stored-signal follow. They do not read a wallet.
 - Backtests use an isolated ledger. They do not change the operator paper book. The modeled paper route does.
 - No Solana RPC, account inspection, or chain confirmation client is included.
 - `2.0.0` final was not on PyPI on 2026-11-11. The `2.0.0rc*` builds are not installed.
-- Pages other than Dashboard, System Health, the six radar pages, Open Positions, Trade History, Strategies, Risk Management, Backtesting, and Paper Trading are placeholders.
+- Wallet SOL and USD value are not available. Verified equity is the last Shield baseline.
+- A missing open-position mark is not treated as zero. Mixed quotes are not summed.
+- The latest radar cycle does not store a market-condition label.
+- Smart-money accumulation and application-stopped notices have no stored source, so they are not emitted.
+- Entry and exit markers are not drawn on candles. Buy and sell pressure is not a stored series. Liquidity history is stored and is not a separate chart.
+- A profile signal threshold is recorded and is not applied to the score or to Shield.
+- Telegram delivery is off. No bot token is loaded.
+- No background worker supervisor is running. That belongs to Phase 8.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
 
 ## Security
 
-- Live mode names are rejected. A `paper_approved` decision does not enable them.
+- Live mode names are rejected. A `paper_approved` decision does not enable them. The terminal has no control that can.
 - `GMGN_PRIVATE_KEY` is not loaded. The paper path does not call `GMGNExecutionGateway` or a live Nautilus execution client.
-- `/radar`, `/trading`, and `/trading/simulation` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
+- `/radar`, `/trading`, `/trading/simulation`, and `/terminal` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only.
 - `.env` is gitignored. The example file contains placeholders only.
 - Simulation rows constrain `live_trading_enabled` to false. Run rows constrain `parameters_deployed` to false.
+- Terminal profile, preference, and notification rows constrain live trading to false. Telegram delivery is constrained to false.
+- Analyst findings set `authorizes_order` false. No external model is called.
 
 ## Exact next actions
 
-1. Do not start Phase 7 until the user asks.
-2. Do not add a signing key, an RPC provider, or a swap. Wallet binding is a separate decision.
-3. Phase 7, when requested, is the remaining terminal pages. It is not live execution.
+1. Do not start Phase 8 until the user asks.
+2. Do not add a signing key, an RPC provider, a swap, or a Telegram bot token. Wallet binding is a separate decision.
+3. Phase 8, when requested, is long-running local operations and a cloud design. It is not live execution.
 
-## Phase 6 checklist
+## Phase 7 checklist
 
 | Done criterion | Result |
 |---|---|
-| Historical data | Datasets store bars, signals, and the universe, including mints with no bars. Radar candles adapt without treating volume as base size. |
-| Backtesting engine | One isolated paper book walks bars in time. The strategy cannot see a later bar. |
-| Paper broker | Priced orders go through Shield. Unpriced bars are refused before a fill is invented. |
-| Execution simulation | Fills, size caps, Shield denials, stale windows, and insufficient liquidity are represented. |
-| Cost model | The fee is an explicit schedule. A missing schedule is not a zero fee. |
-| Slippage model | Adverse quote distance from spot or mid to the modeled execution price. |
-| Liquidity model | Constant-product reserves, or one displayed book level. Missing reserves are not zero impact. |
-| Strategy comparison | Momentum and breakout run on separate books. The result is not a combined portfolio and is not deployed. |
-| Walk-forward | Parameters are chosen on the train window only. A failed train rule takes no test trades. |
-| Performance reports | Return, profit, win rate, drawdown, fees, holding time, exposure, and contribution. Sharpe and Sortino wait for 30 returns. |
-| Paper only | Tests show the backtest stays simulated and live submission still raises. |
-| Phase 7 not started | Portfolio, Analytics, and the other unfinished pages stay placeholders. |
+| Dashboard | Stored paper figures, with wallet SOL and USD explicitly unavailable. |
+| Scanner and radar pages | Stored cycle, filter, sort, and watchlist. A score does not authorize an entry. |
+| Token analysis, smart money, whales | Stored cycle rows and the candle chart. |
+| Portfolio | Shield equity, marks, cost, and open paper positions. Missing marks stay missing. |
+| Positions, trade history, strategies | Stored paper rows. Start and stop do not submit an order. |
+| Risk management | Stored Shield book. Pause and resume go through Shield. |
+| Backtesting and paper trading | Stored simulation reports. Parameters stay undeployed. |
+| Analytics | Stored equity, drawdown, campaign results, and separate research books. |
+| AI analyst | Local stored-evidence findings. Advisory only. |
+| Notifications | Local notices, categories, quiet period, and dedup. Telegram stays off. |
+| Settings | Mode display, locked live trading, locked manual orders, paper profiles. |
+| Health | Existing probe plus stored-evidence freshness. No Phase 8 supervisor. |
+| Paper only | Tests reject live and Telegram flags. Pause does not submit an order. |
+| Phase 8 not started | No worker supervisor, backup, or cloud resource was added. |

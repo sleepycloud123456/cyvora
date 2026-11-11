@@ -205,6 +205,41 @@ def record_emergency(
     return updated, triggers, (notice,)
 
 
+def pause_entries(
+    snapshot: ShieldSnapshot, now: datetime
+) -> tuple[ShieldSnapshot, tuple[ShieldNotice, ...]]:
+    """Stop new paper entries. This does not submit an order or enable live trading."""
+
+    if snapshot.halt_entries:
+        return snapshot, ()
+    notice = ShieldNotice(
+        "operator_pause",
+        "New paper entries are paused. No order was submitted.",
+        now,
+    )
+    return replace(snapshot, halt_entries=True), (notice,)
+
+
+def resume_entries(
+    snapshot: ShieldSnapshot, now: datetime
+) -> tuple[ShieldSnapshot, tuple[ShieldNotice, ...]]:
+    """Allow paper entry evaluation again when no breach or halt trigger remains."""
+
+    if snapshot.breach_latched:
+        raise TradingValidationError("Entries stay paused while a Shield breach is latched.")
+    for flag in snapshot.emergencies:
+        if flag.active and _HALT_TRIGGERS.intersection(flag.triggers):
+            raise TradingValidationError("Entries stay paused while an emergency halt is active.")
+    if not snapshot.halt_entries:
+        return snapshot, ()
+    notice = ShieldNotice(
+        "operator_resume",
+        "Paper entry evaluation is allowed again. Live trading stays locked.",
+        now,
+    )
+    return replace(snapshot, halt_entries=False), (notice,)
+
+
 def record_trail(
     snapshot: ShieldSnapshot,
     mint: str,

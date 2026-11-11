@@ -25,7 +25,8 @@ class HealthPage(QWidget):
         self.summary = QLabel(
             f"Phase {PHASE}. Mode {mode}. Python {sys.version.split()[0]}. "
             "Live trading is locked. The GMGN card shows whether an API key is "
-            "configured. This page does not request market data."
+            "configured. This page does not request market data. "
+            "No background worker supervisor is running."
         )
         self.summary.setObjectName("Notice")
         self.summary.setWordWrap(True)
@@ -39,9 +40,16 @@ class HealthPage(QWidget):
         row.addWidget(self.database_card)
         row.addWidget(self.backend_card)
         row.addWidget(self.gmgn_card)
+        self.freshness = QLabel("Stored radar freshness has not been read.")
+        self.freshness.setObjectName("Notice")
+        self.freshness.setWordWrap(True)
         layout.addWidget(self.summary)
         layout.addLayout(row)
+        layout.addWidget(self.freshness)
         layout.addStretch(1)
+
+    def show_freshness(self, text: str) -> None:
+        self.freshness.setText(text)
 
     def set_checking(self) -> None:
         for card in self._cards():

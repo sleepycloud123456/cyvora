@@ -1,6 +1,6 @@
 [project]
 name = "cyvora"
-version = "0.6.0"
+version = "0.7.0"
 description = "CYVORA Autonomous Trading Platform — simulation and paper broker"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -46,6 +46,7 @@ packages = [
     "shield",
     "trading",
     "backtesting",
+    "terminal",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -72,6 +73,7 @@ src = [
     "tests",
     "trading",
     "backtesting",
+    "terminal",
 ]
 
 [tool.ruff.lint]
@@ -89,6 +91,7 @@ known-first-party = [
     "shield",
     "trading",
     "backtesting",
+    "terminal",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -114,6 +117,7 @@ packages = [
     "shield",
     "trading",
     "backtesting",
+    "terminal",
 ]
 exclude = ["database/migrations"]
 disallow_untyped_defs = true

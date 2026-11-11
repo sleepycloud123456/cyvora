@@ -20,8 +20,8 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.6.0"
-PHASE = "6"
+APP_VERSION = "0.7.0"
+PHASE = "7"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})

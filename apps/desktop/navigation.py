@@ -44,6 +44,14 @@ TRADING_PAGES = {
 
 SIMULATION_PAGES = frozenset({"Backtesting", "Paper Trading"})
 
-IMPLEMENTED_PAGES = frozenset(
-    {DASHBOARD, SYSTEM_HEALTH, *RADAR_MODES, *TRADING_PAGES, *SIMULATION_PAGES}
+TERMINAL_PAGES = frozenset(
+    {
+        "Portfolio",
+        "Analytics",
+        "CYVORA Intelligence",
+        "Notifications",
+        "Settings",
+    }
 )
+
+IMPLEMENTED_PAGES = frozenset(PAGES)

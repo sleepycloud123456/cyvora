@@ -1,6 +1,6 @@
 # Security model
 
-Phase 6 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
+Phase 7 scope. This document describes controls that exist in the repository today and names later controls as policy, not as implemented features.
 
 ## Data the process can see
 
@@ -13,11 +13,12 @@ Phase 6 scope. This document describes controls that exist in the repository tod
 | Market data | GMGN read-only calls, then PostgreSQL | Stored as radar history and shown from that store. Not invented when the store is empty. |
 | Paper orders and positions | PostgreSQL | Explicit simulated rows. Shield stores `paper_approved` or `denied`. |
 | Simulation reports | PostgreSQL | Datasets, runs, and fill assumptions. Parameters are not deployed. |
+| Terminal profiles and notices | PostgreSQL | Paper labels and local notices. Live trading and Telegram delivery are constrained false. |
 | Wallet keys | Not collected | `GMGN_PRIVATE_KEY` is ignored. Trade routes are refused before HTTP. |
 
 ## Credentials
 
-The GMGN API key is read from `.env` and is not written to git. Telegram tokens, AI keys, wallet seeds, and private keys are not read. `.env.example` uses the literal placeholder `CHANGE_ME`. `.cursorignore` excludes `.env`, key files, and `secrets/`.
+The GMGN API key is read from `.env` and is not written to git. Telegram tokens, AI keys, wallet seeds, and private keys are not read. The terminal rejects a request that tries to enable Telegram delivery or live trading. `.env.example` uses the literal placeholder `CHANGE_ME`. `.cursorignore` excludes `.env`, key files, and `secrets/`.
 
 The Windows GMGN transport writes the key into a temporary curl config and deletes that directory before returning. Curl is started with `--disable` so a user curlrc cannot add a proxy. Redirects are not followed, so the key header is not sent to another host. A header value that contains a quote or a newline is refused before the file is used.
 

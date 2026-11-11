@@ -1,6 +1,6 @@
 # Architecture
 
-Phase 5 adds Shield beside the paper ledger. A score does not authorize an order. A Shield paper approval is not a chain transaction.
+Phase 7 reads the stored paper book on the terminal pages. A score does not authorize an order. A Shield paper approval is not a chain transaction. The local analyst cannot approve one either.
 
 ## What runs today
 
@@ -23,7 +23,11 @@ CYVORA API (FastAPI, loopback only)
     |-- POST /trading/strategies            register, start, or stop a slot
     |-- POST /trading/paper/orders          paper mode only, Shield then the simulator
     |-- GET/PUT /trading/shield             stored paper risk book and limits
-    \-- POST /trading/live/{operation}      always refused
+    |-- POST /trading/live/{operation}      always refused
+    |-- GET /terminal/snapshot             bearer token, stored paper book
+    |-- PUT /terminal/profiles             bearer token, paper profile only
+    |-- PUT /terminal/notifications/preferences
+    \-- POST /terminal/controls/pause|resume  Shield halt only, no order
 ```
 
 The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. Radar pages show the latest stored cycle or an empty state. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
@@ -37,7 +41,8 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `monitoring.health` | Builds a `StatusSnapshot` with application, database, backend, and GMGN configuration state. |
 | `database.connection` | Opens a short-lived SQLAlchemy engine when a URL is configured. |
 | `database.models` | Application metadata, radar history, and the paper ledger. |
-| `database.migrations` | Alembic revisions through `0004_shield_risk_engine`. |
+| `database.migrations` | Alembic revisions through `0006_terminal`. |
+| `terminal` | Portfolio, analytics, the local analyst, and notification drafts. |
 | `database.repositories` | Radar history and the paper ledger. |
 | `apps.api` | Factory `create_app`. `/health`, authenticated `/radar`, and authenticated `/trading`. |
 | `apps.desktop` | Terminal window, theme, navigation, stored radar pages, and the simulation ledger. |
@@ -73,6 +78,8 @@ Check constraints keep `simulated` true and `execution_mode` at `PAPER`. `shield
 Revision `0004_shield_risk_engine` adds the Shield book: controls, UTC-day baselines, campaigns, stop plans, emergency flags, decisions, and local notices. Decision rows constrain `live_trading_enabled` to false.
 
 Revision `0005_simulation` adds datasets, bars, signals, universe members, runs, and fill assumptions. Run rows constrain `parameters_deployed` to false. Assumption rows constrain `simulated` to true and `live_trading_enabled` to false.
+
+Revision `0006_terminal` adds paper profiles, notification preferences, and local notifications. Those rows constrain `live_trading_enabled` to false. Preference and notification rows also constrain Telegram delivery to false.
 
 ## Boundaries
 

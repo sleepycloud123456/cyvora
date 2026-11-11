@@ -33,6 +33,7 @@ from database.models.simulation import (
     SimulationRun,
     SimulationSignalRow,
 )
+from database.models.terminal import TerminalNotification, TerminalPreference, TerminalProfile
 from database.models.trading import (
     TradingInstrument,
     TradingOrder,
@@ -64,6 +65,9 @@ __all__ = [
     "SimulationRun",
     "SimulationSignalRow",
     "SmartMoneyEvent",
+    "TerminalNotification",
+    "TerminalPreference",
+    "TerminalProfile",
     "Token",
     "TokenAnalysis",
     "TokenCandle",

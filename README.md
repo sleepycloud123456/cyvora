@@ -1,6 +1,6 @@
 # CYVORA
 
-CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, and a Phase 6 simulation backtest. The desktop shows stored radar rows, stored simulated orders, stored paper risk decisions, and stored simulation reports. It does not invent rows when none are stored.
+CYVORA is a local-first Windows platform for Solana memecoin research, simulation, and, only after a later explicit authorization, supervised trading. This repository has the Phase 1 foundation, a Phase 2 read-only GMGN client, a Phase 3 radar, a Phase 4 paper ledger, a Phase 5 Shield risk engine, a Phase 6 simulation backtest, and the Phase 7 terminal pages. The desktop shows stored rows or an explicit empty state. It does not invent rows when none are stored.
 
 Live trading is not implemented.
 
@@ -18,7 +18,7 @@ Slogan: TRADE BEYOND LIMITS.
 - CYVORA Shield, which approves or denies paper orders. A paper approval cannot submit a live order.
 - Cursor project rules and `AGENTS.md`.
 
-Dashboard, System Health, the radar pages, Open Positions, Trade History, Strategies, and Risk Management are implemented. Other pages are labeled placeholders. They do not contain sample trades.
+Every sidebar page is implemented. Portfolio, Analytics, CYVORA Intelligence, Notifications, and Settings read the stored paper book. Wallet SOL, USD value, and live trading stay unavailable. See [Terminal](docs/terminal/TERMINAL.md).
 
 ## Prerequisites
 

@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 6 is backtesting and the paper broker. Do not start Phase 7 (the remaining terminal pages), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 6 verified.
+Phase 7 is the completed CYVORA Terminal. Do not start Phase 8 (long-running workers, service supervision, backups, or cloud readiness), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 7 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -17,7 +17,7 @@ The project root is this workspace. Do not create a nested `cyvora/` directory.
 5. Do not bypass risk limits or authorization checks that already exist.
 6. Do not present placeholders, mocks, or sample numbers as GMGN or chain data.
 7. Do not invent an API endpoint, adapter, or execution feature.
-8. Do not let an AI analyst authorize a financial action. No analyst is implemented in Phase 1.
+8. Do not let an AI analyst authorize a financial action. The stored-evidence analyst is advisory only.
 9. Review a dependency before adding it. Prefer the locked set in `uv.lock`.
 10. Do not mark work complete without running it.
 
@@ -48,6 +48,7 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Core | `trading/` | Paper gateway, order state, positions, strategy registry, Nautilus proof. |
 | Shield | `shield/` | Paper risk decisions. Approval cannot enable a live order. |
 | Simulation | `backtesting/` | Historical series, cost and liquidity models, the paper broker, backtests, and walk-forward. |
+| Terminal read model | `terminal/` | Portfolio, analytics, local analyst, and notification drafts. No orders. |
 | Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
 The strategy registry is not a signal generator. The simulation strategies in `backtesting/strategies.py` run only inside a paper backtest or the paper broker.
