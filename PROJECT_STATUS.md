@@ -24,7 +24,7 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## In progress
 
-Nothing inside Phase 9.
+Nothing inside Phase 9. A paper-only Nautilus health check and two local security follow-ups are recorded below. Live trading was not enabled.
 
 ## Blockers
 
@@ -44,12 +44,27 @@ Recorded on 2026-11-11 after the Phase 9 run:
 - `uv run python -m readiness` printed `ready_for_live: false`, `kill_switch: released`, and `live_trading_enabled=false`.
 - `uv run --with pip-audit pip-audit` reported `fsspec` 2026.2.0 (PYSEC-2026-4217), pinned by NautilusTrader 1.231.0. CYVORA does not call the affected API. The Nautilus pin was not changed.
 
+Recorded on 2026-11-11 after the Nautilus health follow-up:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 154 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database reachable, backend offline, and GMGN configured.
+- Alembic was already at `0008_readiness (head)`. No new revision.
+- `uv run python -m trading.nautilus.health` passed import, backtest-node shutdown, instrument fill, Shield paper PnL, kill-switch refusal, and a three-bar backtest.
+- The loaded execution mode is `READ_ONLY`. The kill switch state word is `released`. Neither was changed. No operator paper order was inserted.
+- `fsspec==2026.6.0` does not resolve with `nautilus-trader==1.231.0`. The lock was not changed.
+
 No API key or database URL is printed.
 
 ## Known limitations
 
 - Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
-- `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. The reference-filesystem advisory is not patched inside that pin. CYVORA does not open a reference filesystem.
+- `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. Replacing it with 2026.6.0 does not resolve. CYVORA does not open a reference filesystem.
+- The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The configured mode is `READ_ONLY`, so the API refuses to store a paper order until the mode is `PAPER`.
+- No simulation dataset is stored, so the short backtest used a three-bar series in the stored-bar shape. It did not write a run.
+- `/health` without a token returns `{"status": "live"}` only. The detailed body requires the local token.
 - The GitHub repository is public. `.env` is not in its history. Changing visibility is an operator decision.
 - Nautilus 1.231.0 on this wheel has fixed precision 9. A wider price stays in CYVORA `Decimal` and is not rounded into a Nautilus price.
 - A `CurrencyPair` is a synthetic spot instrument. It is not a Solana swap. `OrderSubmitted` inside the Nautilus proof is not a signed transaction, and that proof is not the CYVORA backtest. The CYVORA backtest goes through Shield.
@@ -80,7 +95,7 @@ No API key or database URL is printed.
 
 - Live mode names are rejected. A `paper_approved` decision does not enable them. The readiness report cannot enable them. The terminal has no control that can.
 - `GMGN_PRIVATE_KEY` is not loaded. The paper path does not call `GMGNExecutionGateway` or a live Nautilus execution client.
-- `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require `CYVORA_API_TOKEN`. `/health` stays open and still returns status words only. `/docs` and `/openapi.json` are disabled. Repeated authentication failures return HTTP 429. A bearer value longer than 4096 characters is rejected before it is hashed. Auth rows do not store the token.
+- `/radar`, `/trading`, `/trading/simulation`, `/terminal`, and `/operations` require `CYVORA_API_TOKEN`. `/health` without a token returns liveness only. The detailed health body requires the token. `/docs` and `/openapi.json` are disabled. Repeated authentication failures return HTTP 429. The recent failure count is reloaded from `auth_events` on startup. A bearer value longer than 4096 characters is rejected before it is hashed. Auth rows do not store the token.
 - The kill switch is a database row. Resume and the analyst cannot release it. It was left released after the verification above.
 - `.env` is gitignored and has no commit. The example file contains placeholders only. Container and task templates do not contain a database URL or a token.
 - `repr(Settings)` and `model_dump` do not include the database password. `get_settings` does not re-raise the pydantic input value.

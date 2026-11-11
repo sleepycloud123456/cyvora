@@ -22,8 +22,27 @@ _MAX_BEARER_CHARS = 4096
 
 
 def require_local_token(request: Request, settings: SettingsDep) -> None:
-    """Require the local bearer token. Health does not use this dependency."""
+    """Require the local bearer token. A missing header is a failure."""
 
+    _enforce_bearer(request, settings)
+
+
+def allow_detailed_health(request: Request, settings: Settings) -> bool:
+    """Return whether this caller may see the detailed health body.
+
+    A missing Authorization header is the public liveness probe. It is not
+    recorded as a failure. A header that does not match is a failure.
+    A valid health token does not clear the failure window, so a desktop
+    probe cannot wipe a persisted lockout.
+    """
+
+    if request.headers.get("authorization", "") == "":
+        return False
+    _enforce_bearer(request, settings, reset_on_success=False)
+    return True
+
+
+def _enforce_bearer(request: Request, settings: Settings, *, reset_on_success: bool = True) -> None:
     gate: AuthGate = request.app.state.auth_gate
     moment = datetime.now(UTC)
     if gate.limited(time.monotonic()):
@@ -38,8 +57,9 @@ def require_local_token(request: Request, settings: SettingsDep) -> None:
         gate.record_failure(time.monotonic())
         _remember(settings, gate.remember("rejected", "api", moment))
         raise HTTPException(status_code=401, detail="Unauthorized.")
-    gate.record_success()
-    _remember(settings, gate.remember("accepted", "api", moment))
+    if reset_on_success:
+        gate.record_success()
+        _remember(settings, gate.remember("accepted", "api", moment))
 
 
 def _matches(provided: str, settings: Settings) -> bool:

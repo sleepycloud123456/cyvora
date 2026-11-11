@@ -83,7 +83,11 @@ def probe_backend_http(settings: Settings, timeout: float = 1.5) -> ComponentSta
     """Call the local health endpoint. Response bodies are not copied into the result."""
 
     url = f"http://{settings.api_host}:{settings.api_port}/health"
-    request = Request(url, method="GET")
+    headers: dict[str, str] = {}
+    token = settings.api_token
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token.get_secret_value()}"
+    request = Request(url, headers=headers, method="GET")
     try:
         with urlopen(request, timeout=timeout) as response:
             status_code = int(response.status)
