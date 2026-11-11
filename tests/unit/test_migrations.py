@@ -40,6 +40,18 @@ def test_shield_revision_keeps_live_trading_off() -> None:
     assert "live_approved" not in source
 
 
+def test_simulation_revision_keeps_parameters_undeployed() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261111_0005_simulation.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0005_simulation"' in source
+    assert 'down_revision: str | None = "0004_shield_risk_engine"' in source
+    assert "ck_simulation_runs_deploy" in source
+    assert "ck_simulation_runs_live" in source
+    assert "parameters_deployed IS false" in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -50,5 +62,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0004_shield_risk_engine" in result.stdout
+    assert "0005_simulation" in result.stdout
     assert "postgresql" not in result.stdout.lower()

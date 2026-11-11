@@ -19,7 +19,7 @@ def test_health_reports_unconfigured_database(tmp_path: Path) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["app_name"] == APP_NAME
-    assert body["phase"] == "5"
+    assert body["phase"] == "6"
     assert body["execution_mode"] == "READ_ONLY"
     assert body["live_trading_enabled"] is False
     assert body["status"] == "ok"

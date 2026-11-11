@@ -375,7 +375,11 @@ def _bare_intent(request: PaperOrderRequest, instrument: SolanaInstrument) -> Ri
 
 
 def _fill_price(side: OrderSide, reference: Decimal, slippage: Decimal) -> Decimal:
-    """Apply a supplied quote slippage. CYVORA does not calculate a pool impact."""
+    """Apply the quote slippage on the request.
+
+    The paper broker calculates pool impact before this call. The gateway
+    does not invent an impact when the request does not carry one.
+    """
 
     price = reference + slippage if side is OrderSide.BUY else reference - slippage
     if price <= 0:

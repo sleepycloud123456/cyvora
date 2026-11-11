@@ -72,15 +72,17 @@ Check constraints keep `simulated` true and `execution_mode` at `PAPER`. `shield
 
 Revision `0004_shield_risk_engine` adds the Shield book: controls, UTC-day baselines, campaigns, stop plans, emergency flags, decisions, and local notices. Decision rows constrain `live_trading_enabled` to false.
 
+Revision `0005_simulation` adds datasets, bars, signals, universe members, runs, and fill assumptions. Run rows constrain `parameters_deployed` to false. Assumption rows constrain `simulated` to true and `live_trading_enabled` to false.
+
 ## Boundaries
 
 1. CYVORA Terminal remains the Windows control surface.
-2. CYVORA API remains a loopback service. `/radar` and `/trading` require the local bearer token. `/health` stays unauthenticated.
+2. CYVORA API remains a loopback service. `/radar`, `/trading`, and `/trading/simulation` require the local bearer token. `/health` stays unauthenticated.
 3. CYVORA Core owns the strategy registry and simulated execution. NautilusTrader 1.231.0 stays behind `trading/nautilus`. Solana swaps are not represented as exchange order types.
 4. `integrations.gmgn` is the market-data boundary. Radar calls that client. It does not add routes. Radar does not register a strategy.
 5. PostgreSQL remains the system of record.
 
-Signal strategies, the Phase 6 paper broker, and cloud deployment are not in the repository.
+Signal strategies that trade live, and cloud deployment, are not in the repository. The simulation strategies in `backtesting/` run only inside a paper backtest or the paper broker.
 
 ## Execution lifecycle
 

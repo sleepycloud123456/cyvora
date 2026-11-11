@@ -17,7 +17,7 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(0, 12, 0, 0)
         layout.setSpacing(16)
         self.notice = QLabel(
-            "Phase 5 stores paper risk decisions on the Risk Management page. "
+            "Phase 6 stores backtests and modeled paper fills. "
             "Portfolio value and live balances are not available on this page "
             "and are not displayed."
         )

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — 2026-11-11 — Phase 6
+
+- Added a simulation-only backtest, walk-forward runner, and strategy comparison. Reports record research limits and do not deploy parameters.
+- Added constant-product and displayed-depth fills, an explicit fee schedule, and an execution-delay window. Candle close is a mark, not a fill. A missing impact is not stored as zero.
+- Routed every priced paper order through Shield. Stops, take-profits, and time exits are new paper orders. A planned stop is not the fill price.
+- Stored datasets, runs, and fill assumptions in PostgreSQL revision `0005_simulation`. The Backtesting and Paper Trading pages read those rows.
+- Left GMGN on the existing curl transport and rate limiter. No RPC, wallet, signer, or Phase 7 page was added.
+
 ## 0.5.0 — 2026-11-11 — Phase 5
 
 - Added the deterministic Shield engine: position size, stops, take-profits, trailing stops, allocation, SOL reserve, liquidity, correlation, daily loss, drawdown, consecutive-loss campaigns, and emergency classification.
