@@ -1,6 +1,6 @@
 # Architecture
 
-Phase 3 adds a read-only radar on top of the GMGN client. Strategies and execution are not in the repository. A score does not authorize an order.
+Phase 4 adds a paper trading ledger beside the read-only radar. A score does not authorize an order. A simulated fill is not a chain transaction.
 
 ## What runs today
 
@@ -17,10 +17,15 @@ CYVORA API (FastAPI, loopback only)
     |-- GET /health                         unauthenticated status words
     |-- GET /radar/latest                   bearer token, no GMGN call
     |-- POST /radar/cycles                  bearer token, one read-only cycle
-    \-- POST/DELETE /radar/watchlist        bearer token, PostgreSQL only
+    |-- POST/DELETE /radar/watchlist        bearer token, PostgreSQL only
+    |-- GET /trading/status                 bearer token, no venue call
+    |-- GET /trading/orders, positions, strategies
+    |-- POST /trading/strategies            register, start, or stop a slot
+    |-- POST /trading/paper/orders          paper mode only, explicit price
+    \-- POST /trading/live/{operation}      always refused
 ```
 
-The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the process calls directly. Health does not call it. The execution gateway has no HTTP client. Radar pages show the latest stored cycle or an explicit empty state.
+The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. Radar pages show the latest stored cycle or an empty state. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
 
 ## Modules
 
@@ -30,14 +35,16 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `monitoring.logging` | Writes the `cyvora` logger to stderr and `logs/cyvora.log`. |
 | `monitoring.health` | Builds a `StatusSnapshot` with application, database, backend, and GMGN configuration state. |
 | `database.connection` | Opens a short-lived SQLAlchemy engine when a URL is configured. |
-| `database.models` | `application_metadata` and the radar history tables. |
-| `database.migrations` | Alembic revisions `0001_application_metadata` and `0002_radar_intelligence`. |
-| `database.repositories` | `PostgresRadarRepository`, the radar store used by the API and the terminal. |
-| `apps.api` | Factory `create_app`. `/health` plus authenticated `/radar` routes. |
-| `apps.desktop` | Terminal window, theme, navigation, and stored radar pages. |
-| `domain` | `ExecutionMode`, radar categories, errors, and status dataclasses. |
+| `database.models` | Application metadata, radar history, and the paper ledger. |
+| `database.migrations` | Alembic revisions through `0003_trading_infrastructure`. |
+| `database.repositories` | Radar history and the paper ledger. |
+| `apps.api` | Factory `create_app`. `/health`, authenticated `/radar`, and authenticated `/trading`. |
+| `apps.desktop` | Terminal window, theme, navigation, stored radar pages, and the simulation ledger. |
+| `domain` | `ExecutionMode`, radar categories, paper records, errors, and status dataclasses. |
 | `integrations.gmgn` | Allowlisted GMGN reads, rate limiting, and a gateway that refuses trades. |
+| `integrations.solana` | Adapts supplied observations and GMGN candles into market contracts. No RPC. |
 | `intelligence` | One radar cycle, indicators, security, liquidity, smart money, whales, and the score. |
+| `trading` | Paper gateway, order states, positions, strategy registry, and the Nautilus proof. |
 
 ## Data that is stored
 
@@ -52,21 +59,32 @@ Revision `0002_radar_intelligence` adds history that a later cycle inserts and d
 - `watchlist_items` (removal sets `active` false)
 - `audit_events` for the cycle and watchlist actions
 
-Amounts are `Numeric(38, 18)`. The breakdown JSON stores the public score fields the terminal reads back. Orders are not stored.
+Amounts are `Numeric(38, 18)`. The breakdown JSON stores the public score fields the terminal reads back.
 
-## Planned boundaries
+Revision `0003_trading_infrastructure` adds the paper ledger:
 
-These names are reserved for later phases. They are not stubbed in code.
+- `trading_instruments`, `trading_strategies`, `trading_orders`
+- `trading_order_events`, `trading_positions`, `trading_reconciliations`
+
+Check constraints keep `simulated` true, `execution_mode` at `PAPER`, and `shield_decision` at `not_authorized`. They reject `SUBMISSION_PENDING`, `SUBMITTED`, and `CONFIRMATION_PENDING`.
+
+## Boundaries
 
 1. CYVORA Terminal remains the Windows control surface.
-2. CYVORA API remains a loopback service. `/radar` requires the local bearer token. `/health` stays unauthenticated.
-3. CYVORA Core will own strategy lifecycle and simulated execution. NautilusTrader, if adopted, stays behind that boundary. Solana swaps will not be forced into exchange order types.
-4. `integrations.gmgn` is the market-data boundary. Radar calls that client. It does not add routes. There is no strategy.
+2. CYVORA API remains a loopback service. `/radar` and `/trading` require the local bearer token. `/health` stays unauthenticated.
+3. CYVORA Core owns the strategy registry and simulated execution. NautilusTrader 1.231.0 stays behind `trading/nautilus`. Solana swaps are not represented as exchange order types.
+4. `integrations.gmgn` is the market-data boundary. Radar calls that client. It does not add routes. Radar does not register a strategy.
 5. PostgreSQL remains the system of record.
+
+Shield, signal strategies, the paper broker, and cloud deployment are not in the repository.
 
 ## Execution lifecycle
 
-There is no order lifecycle. The only mode flag is `READ_ONLY` or `PAPER`, and both mean "do not submit a transaction". `GMGNExecutionGateway.submit` discards the payload and raises. A future live path has to pass settings validation that currently rejects it.
+`READ_ONLY` does not store a simulated order. `PAPER` may store one. Both modes mean "do not submit a transaction". `GMGNExecutionGateway.submit` discards the payload and raises. `refuse_live_execution` raises before a store write or a socket. A future live path has to pass settings validation that currently rejects it.
+
+A paper order is created, validated, marked simulation-pending, marked simulation-passed, and then confirmed or failed. Confirmation is the local simulator's result. Reconciliation can move that row to `UNKNOWN` when a report is missing or disagrees. It does not change the position and it does not send another order.
+
+The API sets every `RUNNING` strategy to `STOPPED` when the process starts. Starting a strategy and submitting an intent both require `PAPER`. The intent's shield decision stays `not_authorized`.
 
 ## Security boundary
 

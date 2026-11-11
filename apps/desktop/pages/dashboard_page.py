@@ -17,9 +17,9 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(0, 12, 0, 0)
         layout.setSpacing(16)
         self.notice = QLabel(
-            "Phase 3 ranks tokens after a stored radar cycle. Portfolio value, "
-            "positions, and profit figures are not available on this page and "
-            "are not displayed."
+            "Phase 4 stores explicit simulated orders on the trading pages. "
+            "Portfolio value and live balances are not available on this page "
+            "and are not displayed."
         )
         self.notice.setObjectName("Notice")
         self.notice.setWordWrap(True)

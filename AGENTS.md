@@ -4,7 +4,7 @@ Permanent instructions for coding agents working on CYVORA. The product is the C
 
 ## Current phase
 
-Phase 3 is the read-only radar. Do not start Phase 4 (NautilusTrader, strategies, execution), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 3 verified.
+Phase 4 is the paper trading core. Do not start Phase 5 (Shield), wallet signing, or live execution unless the user explicitly asks and `PROJECT_STATUS.md` shows Phase 4 verified.
 
 The project root is this workspace. Do not create a nested `cyvora/` directory.
 
@@ -30,7 +30,7 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 - Execution mode is `READ_ONLY` or `PAPER`. Live mode names must keep failing validation.
 - The API listens on loopback. The default port is 8787.
 - PostgreSQL is the only application database. A missing server is reported as `not_configured` or left unreachable. Do not add SQLite to paper over that.
-- NautilusTrader is not a dependency yet. The stable candidate is 1.231.0. Do not install 2.x pre-releases. See `docs/architecture/TECHNICAL_DECISIONS.md`.
+- NautilusTrader 1.231.0 is the installed engine. Do not install a 2.x pre-release beside it. See `docs/trading/NAUTILUS_MAPPING.md`.
 
 ## Where code goes
 
@@ -44,9 +44,11 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 | Operations | `monitoring/` | Logging, redaction, and health collection |
 | GMGN | `integrations/gmgn/` | Read-only Agent API client. No signing and no trade calls. |
 | Radar | `intelligence/` | Discovery, scoring, and the cycle. No orders. |
+| Solana data | `integrations/solana/` | Market-contract adaptation. No RPC and no wallet. |
+| Core | `trading/` | Paper gateway, order state, positions, strategy registry, Nautilus proof. |
 | Tests | `tests/` | Unit, security, the optional database check, and the opt-in GMGN and radar smokes |
 
-Do not add empty packages for Shield or strategies until that phase starts.
+Do not add Shield or signal-strategy modules until that phase starts. The strategy registry is not a signal generator.
 
 ## Workflow
 
@@ -80,5 +82,6 @@ uv run cyvora-desktop
 - `docs/architecture/ARCHITECTURE.md` — what exists now.
 - `docs/architecture/TECHNICAL_DECISIONS.md` — choices and tradeoffs.
 - `docs/security/SECURITY_MODEL.md` — credentials and fail-closed behavior.
-- `docs/ROADMAP.md` — later phases. Phase 3 is not implemented.
+- `docs/ROADMAP.md` — later phases. Phase 5 has not started.
+- `docs/trading/NAUTILUS_MAPPING.md` — Nautilus 1.231.0 mapping and the offline proof.
 - `docs/integrations/GMGN_API_RESEARCH.md` — verified GMGN behavior and the live shapes.

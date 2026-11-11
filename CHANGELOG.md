@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-11-11 — Phase 4
+
+- Added NautilusTrader 1.231.0 and an offline proof for Solana instrument precision, quotes, trades, bars, a full fill, an IOC partial, and a denied buy.
+- Added a paper gateway, order states, position accounting, reconciliation, and a strategy registry. Live submission stays refused. Shield stays `not_authorized`.
+- Stored the ledger in PostgreSQL revision `0003_trading_infrastructure` and showed it on authenticated `/trading` routes and the terminal ledger pages.
+- Left GMGN on the existing curl transport and rate limiter. No RPC, wallet, or signer was added.
+
 ## 0.3.0 — 2026-11-11 — Phase 3
 
 - Added a read-only radar cycle: trending and new-launch discovery, security, liquidity, indicators, smart-money and whale tag counts, and a documented score.

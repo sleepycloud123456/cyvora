@@ -16,6 +16,14 @@ from database.models.radar import (
     WatchlistItem,
     WhaleEvent,
 )
+from database.models.trading import (
+    TradingInstrument,
+    TradingOrder,
+    TradingOrderEvent,
+    TradingPosition,
+    TradingReconciliation,
+    TradingStrategy,
+)
 
 __all__ = [
     "ApplicationMetadata",
@@ -30,6 +38,12 @@ __all__ = [
     "TokenAnalysis",
     "TokenCandle",
     "TokenObservation",
+    "TradingInstrument",
+    "TradingOrder",
+    "TradingOrderEvent",
+    "TradingPosition",
+    "TradingReconciliation",
+    "TradingStrategy",
     "WatchlistItem",
     "WhaleEvent",
 ]

@@ -36,4 +36,10 @@ RADAR_MODES = {
     "Whale Tracker": "whales",
 }
 
-IMPLEMENTED_PAGES = frozenset({DASHBOARD, SYSTEM_HEALTH, *RADAR_MODES})
+TRADING_PAGES = {
+    "Open Positions": "positions",
+    "Trade History": "orders",
+    "Strategies": "strategies",
+}
+
+IMPLEMENTED_PAGES = frozenset({DASHBOARD, SYSTEM_HEALTH, *RADAR_MODES, *TRADING_PAGES})
