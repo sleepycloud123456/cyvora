@@ -24,7 +24,7 @@ The monthly budget in the product prompt is €20–50. These bands are here so 
 | Small VPS for a future worker | Often about €5–15 | Only relevant after the local system is proven. A Windows desktop would remain the control panel. |
 | Solana RPC | Public endpoints are rate limited. A dedicated endpoint is commonly a paid plan. | Not selected. Phase 8 does not call an RPC. |
 | GMGN API | The free bucket is 5/5 and is what CYVORA paces. Plus is 20/20 and Pro is 50/50. | No plan was purchased. Do not buy one from this repository. |
-| Telegram bot API | €0 for the bot platform itself | Not implemented. |
+| Telegram bot API | €0 for the bot platform itself | Off unless `CYVORA_TELEGRAM_ENABLED` is set. No plan is purchased. |
 | AI analysis | Depends on the provider and volume | No provider is wired. Prompts must not include secrets. |
 | NautilusTrader library | €0 license fee | LGPL-3.0-or-later. Version 1.231.0 is installed. |
 | Market-data history storage | Grows with candle retention | Keep it local until the volume is measured. |

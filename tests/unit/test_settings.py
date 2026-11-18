@@ -85,6 +85,20 @@ def test_private_key_variable_is_ignored(tmp_path: Path) -> None:
     assert "not-a-real-key" not in repr(settings)
 
 
+def test_telegram_token_stays_out_of_repr_and_stays_off() -> None:
+    settings = Settings(
+        _env_file=None,
+        telegram_bot_token="123456789:telegram-test-token",
+        telegram_chat_id="42",
+    )
+    assert settings.telegram_enabled is False
+    assert "123456789:telegram-test-token" not in repr(settings)
+    assert "42" not in repr(settings)
+    assert settings.model_dump()["telegram_bot_token"] == "configured"
+    assert settings.model_dump()["telegram_chat_id"] == "configured"
+    assert not hasattr(settings, "gmgn_private_key")
+
+
 def test_database_url_is_absent_from_repr_and_dump() -> None:
     settings = Settings(
         _env_file=None,

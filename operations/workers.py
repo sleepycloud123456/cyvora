@@ -125,19 +125,38 @@ class PortfolioWorker:
 
 
 class NotificationWorker:
-    """Confirm that delivery stays local. This tick does not send a message."""
+    """Store source notices and deliver them. Telegram stays off unless opted in."""
 
     kind = "notifications"
 
     def __init__(
-        self, stored_notices: Callable[[], int | None], *, database_configured: bool
+        self,
+        stored_notices: Callable[[], int | None] | None = None,
+        *,
+        database_configured: bool,
+        deliver: Callable[[datetime], TickResult] | None = None,
     ) -> None:
         self._stored_notices = stored_notices
         self._database_configured = database_configured
+        self._deliver = deliver
 
     def tick(self, now: datetime) -> TickResult:
-        del now
         if not self._database_configured:
+            return TickResult(
+                self.kind,
+                "not_configured",
+                "Notification storage is not configured. Telegram delivery is off.",
+            )
+        if self._deliver is not None:
+            try:
+                return self._deliver(now)
+            except Exception as exc:
+                return TickResult(
+                    self.kind,
+                    "failed",
+                    f"Notice delivery failed ({type(exc).__name__}). The response was withheld.",
+                )
+        if self._stored_notices is None:
             return TickResult(
                 self.kind,
                 "not_configured",

@@ -10,6 +10,7 @@ from domain.paper_trader import PaperTraderView, unavailable_trader
 from domain.shield import ShieldDecisionRecord, ShieldNotice, ShieldSnapshot
 from domain.status import StatusSnapshot
 from domain.terminal import (
+    AlertEvidence,
     NotificationPreferences,
     NotificationRecord,
     SettingsView,
@@ -44,6 +45,7 @@ def assemble(
     status: StatusSnapshot | None,
     now: datetime,
     paper_trader: PaperTraderView | None = None,
+    alerts: tuple[AlertEvidence, ...] = (),
 ) -> TerminalSnapshot:
     """Build the pages. Pending notices are the ones not already stored."""
 
@@ -59,6 +61,7 @@ def assemble(
         status=status,
         preferences=preferences,
         now=now,
+        alerts=alerts,
     )
     pending = unseen(existing_notifications, drafts)
     active = next((item.profile_id for item in profiles if item.active), None)

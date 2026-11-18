@@ -37,9 +37,7 @@ from trading.paper_trader.candidates import candidate_from_analysis
 
 logger = logging.getLogger("cyvora.paper_trader")
 
-_ACTIONS = frozenset(
-    {"submitted", "refused", "blocked", "held", "duplicate", "skipped", "exited"}
-)
+_ACTIONS = frozenset({"submitted", "refused", "blocked", "held", "duplicate", "skipped", "exited"})
 _UNPRICED_REASONS = frozenset({"mark_missing", "mark_stale", "pool_reserves_missing"})
 _STATUSES = frozenset({"running", "paused", "blocked", "skipped", "failed"})
 _KILL = frozenset({"released", "engaged", "unreadable", "not_configured", "not_checked"})
@@ -96,9 +94,7 @@ class PostgresPaperTraderRepository:
         finally:
             engine.dispose()
 
-    def latest_pool_quotes(
-        self, mints: tuple[str, ...]
-    ) -> dict[str, tuple[PoolQuote, int]]:
+    def latest_pool_quotes(self, mints: tuple[str, ...]) -> dict[str, tuple[PoolQuote, int]]:
         """Latest stored radar pool snapshot for each mint, with its cycle id."""
 
         if not mints:

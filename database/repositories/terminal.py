@@ -54,12 +54,14 @@ class PostgresTerminalRepository:
             preferences = self._preferences()
             existing = self._notifications()
             from database.repositories.paper_trader import PostgresPaperTraderRepository
+            from operations.alerts import load_alert_evidence
 
             trader = PostgresPaperTraderRepository(self._settings).load_view(
                 now,
                 stale_after_seconds=self._settings.radar_scan_interval_seconds * 3,
                 bankroll=self._settings.paper_bankroll_sol,
             )
+            alerts = load_alert_evidence(self._settings)
         except (DatabaseNotConfiguredError, DatabaseUnavailableError, TradingValidationError):
             raise
         except Exception as exc:
@@ -83,8 +85,9 @@ class PostgresTerminalRepository:
             status=status,
             now=now,
             paper_trader=trader,
+            alerts=alerts,
         )
-        self._insert(snapshot.pending_notifications, now)
+        self.store_notices(snapshot.pending_notifications, now)
         return replace(
             snapshot,
             notifications=self._notifications(),
@@ -260,6 +263,11 @@ class PostgresTerminalRepository:
         finally:
             engine.dispose()
 
+    def notification_preferences(self) -> NotificationPreferences:
+        """Return the stored local rules. Telegram stays false on this row."""
+
+        return self._preferences()
+
     def _preferences(self) -> NotificationPreferences:
         engine = create_database_engine(self._settings)
         try:
@@ -285,7 +293,8 @@ class PostgresTerminalRepository:
                 rows = session.scalars(
                     select(TerminalNotification).order_by(TerminalNotification.recorded_at.desc())
                 ).all()
-                return tuple(_notification(row) for row in rows)
+                states = _telegram_states(session)
+                return tuple(_notification(row, states.get(row.dedup_key, "off")) for row in rows)
         except DatabaseNotConfiguredError:
             raise
         except TradingValidationError:
@@ -296,10 +305,16 @@ class PostgresTerminalRepository:
         finally:
             engine.dispose()
 
-    def _insert(self, drafts: tuple[object, ...], now: datetime) -> None:
+    def store_notices(self, drafts: tuple[object, ...], now: datetime) -> int:
+        """Insert unseen drafts. The return value is how many rows were added."""
+
+        return self._insert(drafts, now)
+
+    def _insert(self, drafts: tuple[object, ...], now: datetime) -> int:
         if not drafts:
-            return
+            return 0
         engine = create_database_engine(self._settings)
+        added = 0
         try:
             with Session(engine) as session:
                 keys = set(session.scalars(select(TerminalNotification.dedup_key)).all())
@@ -321,6 +336,7 @@ class PostgresTerminalRepository:
                         )
                     )
                     keys.add(key)
+                    added += 1
                 session.commit()
         except DatabaseNotConfiguredError:
             raise
@@ -329,6 +345,7 @@ class PostgresTerminalRepository:
             raise DatabaseUnavailableError("A notification could not be stored.") from None
         finally:
             engine.dispose()
+        return added
 
 
 def _profile_row(profile: TradingProfile, now: datetime) -> TerminalProfile:
@@ -393,9 +410,24 @@ def _preferences(row: TerminalPreference) -> NotificationPreferences:
     )
 
 
-def _notification(row: TerminalNotification) -> NotificationRecord:
+def _telegram_states(session: Session) -> dict[str, str]:
+    from database.models.operations import OperationDelivery
+
+    rows = session.scalars(
+        select(OperationDelivery).where(OperationDelivery.channel == "telegram")
+    ).all()
+    states: dict[str, str] = {}
+    for row in rows:
+        if row.status in {"sent", "failed"}:
+            states[row.dedup_key] = row.status
+    return states
+
+
+def _notification(row: TerminalNotification, telegram_state: str = "off") -> NotificationRecord:
     if row.delivered_telegram or row.live_trading_enabled:
         raise TradingValidationError("A stored notification cannot record a live or Telegram send.")
+    if telegram_state not in {"off", "sent", "failed"}:
+        telegram_state = "off"
     return NotificationRecord(
         dedup_key=row.dedup_key,
         category=row.category,
@@ -405,4 +437,5 @@ def _notification(row: TerminalNotification) -> NotificationRecord:
         recorded_at=row.recorded_at,
         withheld=row.withheld,
         delivered_telegram=False,
+        telegram_state=telegram_state,
     )

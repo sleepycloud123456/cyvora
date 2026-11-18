@@ -47,7 +47,7 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `monitoring.health` | Builds a `StatusSnapshot` with application, database, backend, and GMGN configuration state. |
 | `database.connection` | Opens a short-lived SQLAlchemy engine when a URL is configured. |
 | `database.models` | Application metadata, radar history, and the paper ledger. |
-| `database.migrations` | Alembic revisions through `0011_worker_kinds`. |
+| `database.migrations` | Alembic revisions through `0013_recovery`. |
 | `operations` | Supervisor, recovery, backup, diagnostics, and local auth limits. |
 | `terminal` | Portfolio, analytics, the local analyst, and notification drafts. |
 | `database.repositories` | Radar history and the paper ledger. |
@@ -91,6 +91,8 @@ Revision `0006_terminal` adds paper profiles, notification preferences, and loca
 Revision `0007_operations` adds worker, heartbeat, recovery, backup, and authentication rows. Recovery rows constrain wallet reconciliation to `not_authorized` and `wallet_assumed_flat` to false. Worker rows constrain `cloud_deployed` and `live_trading_enabled` to false.
 
 Revision `0008_readiness` adds the kill-switch row and its audit. The control row constrains `live_trading_enabled` to false and `authorization_state` to `not_authorized`. The audit row has no confirmation-word column.
+
+Revision `0013_recovery` adds process lifecycle rows and notice delivery rows. Both constrain `live_trading_enabled` to false. The delivery table does not store a bot token. Preference rows still constrain `telegram_delivery` to false. It revises `0012_paper_trader_exited`.
 
 ## Boundaries
 

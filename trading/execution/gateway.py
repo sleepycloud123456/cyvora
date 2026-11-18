@@ -305,11 +305,12 @@ class PaperExecutionGateway:
             return filled, Decimal(0), None
         price = _fill_price(request.side, request.reference_price, request.slippage_quote)
         require_scaled(price, instrument.price_decimals, "Fill price")
-        filled = (
+        partial = (
             request.quantity if request.outcome is SimulationOutcome.FILL else request.fill_quantity
         )
-        if filled is None:
+        if partial is None:
             raise TradingValidationError("A partial paper fill needs a fill quantity.")
+        filled = partial
         if request.side is OrderSide.SELL:
             available = Decimal(0) if position is None else position.quantity
             if filled > available:

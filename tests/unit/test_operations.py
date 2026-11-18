@@ -199,6 +199,7 @@ def test_diagnostics_redact_secrets(tmp_path: Path) -> None:
         log_dir=tmp_path,
         gmgn_api_key="gmgn-test-key-not-real",
         api_token="local-test-token-ok",
+        telegram_bot_token="123456789:telegram-test-token",
         database_url=f"postgresql+psycopg://cyvora:{PASSWORD}@127.0.0.1:5432/cyvora",
     )
     document = build_document(
@@ -207,6 +208,7 @@ def test_diagnostics_redact_secrets(tmp_path: Path) -> None:
         run=None,
         log_text=(
             "GMGN_API_KEY=gmgn-test-key-not-real "
+            "CYVORA_TELEGRAM_BOT_TOKEN=123456789:telegram-test-token "
             f"postgresql+psycopg://cyvora:{PASSWORD}@127.0.0.1:5432/cyvora"
         ),
         generated_at=NOW,
@@ -214,6 +216,7 @@ def test_diagnostics_redact_secrets(tmp_path: Path) -> None:
     assert "gmgn-test-key-not-real" not in document
     assert PASSWORD not in document
     assert "local-test-token-ok" not in document
+    assert "123456789:telegram-test-token" not in document
     assert '"live_trading_enabled": false' in document
     assert '"cloud_deployed": false' in document
 

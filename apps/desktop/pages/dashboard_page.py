@@ -17,6 +17,7 @@ from apps.desktop.charts.series_chart import SeriesChart
 from apps.desktop.components.disclosure import DetailDisclosure
 from apps.desktop.components.hologram import Hologram
 from apps.desktop.components.status_card import StatusCard
+from apps.desktop.services.attention import attention_text
 from domain.paper_trader import PaperTraderView, unavailable_trader
 from domain.status import StatusSnapshot
 from domain.terminal import PortfolioView, PositionLine, RecentOrder
@@ -40,6 +41,10 @@ class DashboardPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 8, 0, 0)
         layout.setSpacing(0)
+        self.attention = QLabel("")
+        self.attention.setObjectName("AttentionBanner")
+        self.attention.setWordWrap(True)
+        self.attention.setVisible(False)
         self.notice = QLabel(
             "Paper figures come from the stored book. Wallet SOL and USD value "
             "are not available. A Shield figure is not a live balance."
@@ -123,6 +128,7 @@ class DashboardPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setWidget(body)
+        layout.addWidget(self.attention)
         layout.addWidget(scroll)
         self._show_metric_message("Not checked", "The paper book has not been read.")
         self.show_trader(
@@ -139,17 +145,23 @@ class DashboardPage(QWidget):
         for card in self._cards():
             card.set_status("Not checked", "The status probe is idle in this session.")
         self._show_metric_message("Not checked", "The paper book has not been read.")
+        self.attention.setVisible(False)
 
     def show_probe_failure(self, message: str) -> None:
         self.database_card.set_status("unknown", message)
         self.backend_card.set_status("unknown", message)
         self.gmgn_card.set_status("unknown", message)
+        self._show_attention(
+            "API status is unknown. The status check failed, so the desktop cannot "
+            "confirm that the API is up. Stored rows may be stale."
+        )
 
     def apply_snapshot(self, snapshot: StatusSnapshot) -> None:
         self.application_card.apply(snapshot.application)
         self.database_card.apply(snapshot.database)
         self.backend_card.apply(snapshot.backend)
         self.gmgn_card.apply(snapshot.gmgn)
+        self._show_attention(attention_text(snapshot))
 
     def show_portfolio_message(self, text: str) -> None:
         self._show_metric_message("unavailable", text)
@@ -219,6 +231,14 @@ class DashboardPage(QWidget):
             f"{item.symbol} {item.side} {item.state} {item.shield_decision}" for item in view.recent
         ]
         self.recent.setText("Recent paper orders: " + "; ".join(lines))
+
+    def _show_attention(self, text: str) -> None:
+        if not text:
+            self.attention.clear()
+            self.attention.setVisible(False)
+            return
+        self.attention.setText(text)
+        self.attention.setVisible(True)
 
     def _cards(self) -> tuple[StatusCard, ...]:
         return (self.application_card, self.database_card, self.backend_card, self.gmgn_card)

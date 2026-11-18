@@ -451,9 +451,7 @@ def test_writeoff_clears_exposure_so_a_new_entry_can_be_sized() -> None:
     run_once(**_kwargs(store, (_candidate(),), _quotes()))
     later = NOW + timedelta(seconds=1800)
     quotes = {WSOL: _quote(WSOL, observed=later)}
-    result = run_once(
-        **_kwargs(store, (_candidate(mint=WSOL, symbol="WSOL"),), quotes, now=later)
-    )
+    result = run_once(**_kwargs(store, (_candidate(mint=WSOL, symbol="WSOL"),), quotes, now=later))
     assert any(item.reason == "unpriced_writeoff" for item in result.decisions)
     assert not any(item.reason == "exposure_unpriced" for item in result.decisions)
     assert result.equity_quote is not None

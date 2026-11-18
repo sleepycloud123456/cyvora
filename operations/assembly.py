@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from config.settings import Settings
 from domain.operations import TickResult
 from domain.paper_trader import TraderTick
+from operations.delivery import deliver_notices
 from operations.supervisor import Worker
 from operations.workers import FreshnessWorker, NotificationWorker, PortfolioWorker, RadarWorker
 from trading.paper_trader.runtime import PaperTraderWorker, run_stored
@@ -44,7 +45,11 @@ def default_workers(
             database_configured=configured,
         ),
         PortfolioWorker(lambda: _open_positions(settings), database_configured=configured),
-        NotificationWorker(lambda: _notice_count(settings), database_configured=configured),
+        NotificationWorker(
+            lambda: _notice_count(settings),
+            database_configured=configured,
+            deliver=(lambda now: deliver_notices(settings, now)) if configured else None,
+        ),
         PaperStrategyWorker(evaluate_paper),
     ]
     if allow_paper_trader:

@@ -124,7 +124,31 @@ def test_snapshot_updates_cards_without_market_data(qtbot) -> None:  # type: ign
     assert window.mode_badge.text() == "PAPER"
     assert window.dashboard.database_card.state_label.text() == "not_configured"
     assert window.dashboard.backend_card.state_label.text() == "offline"
+    assert window.dashboard.attention.isHidden() is False
+    assert "API is down" in window.dashboard.attention.text()
+    assert "API is down" in window.health.attention.text()
     assert "0.2.0" in window.dashboard.application_card.detail_label.text()
+    window.apply_snapshot(
+        StatusSnapshot(
+            app_name="CYVORA",
+            version="0.9.2",
+            phase="9",
+            environment="local",
+            execution_mode="PAPER",
+            live_trading_enabled=False,
+            application=ComponentStatus("running", "CYVORA"),
+            database=ComponentStatus("reachable", "PostgreSQL accepted a connection."),
+            backend=ComponentStatus("running", "The health endpoint responded with HTTP 200."),
+            gmgn=ComponentStatus("not_configured", "GMGN_API_KEY is not set."),
+            market_data=ComponentStatus(
+                "stale",
+                "The latest stored cycle is older than the freshness window.",
+            ),
+        )
+    )
+    assert "API is down" not in window.dashboard.attention.text()
+    assert "Stored market data is stale" in window.dashboard.attention.text()
+    assert "Stored market data is stale" in window.health.attention.text()
     assert window.dashboard.gmgn_card.state_label.text() == "not_configured"
     theme = Path(__file__).resolve().parents[2] / "apps" / "desktop" / "themes" / "cyvora.qss"
     assert theme.is_file()

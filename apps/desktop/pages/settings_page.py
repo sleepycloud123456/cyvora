@@ -115,6 +115,10 @@ class SettingsPage(QWidget):
         self.telegram = QCheckBox("Telegram delivery")
         self.telegram.setChecked(False)
         self.telegram.setEnabled(False)
+        self.telegram.setToolTip(
+            "Telegram stays off unless CYVORA_TELEGRAM_ENABLED is set. "
+            "This checkbox cannot enable it, and the bot token is not shown."
+        )
         self.save_preferences = QPushButton("Store notification settings")
         self.save_preferences.setObjectName("SecondaryButton")
         self.save_preferences.clicked.connect(self._save_preferences)
