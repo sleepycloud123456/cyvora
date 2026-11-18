@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2 — 2026-11-18 — CI regression gate
+
+- Added a GitHub Actions workflow that runs Ruff, mypy, pytest, pip-audit, and an offscreen desktop smoke launch on `ubuntu-latest` and `windows-latest`. PostgreSQL 17 is a service on Ubuntu and the Windows runner install.
+- Replaced the migration source-string checks and the connectivity-only database test with Alembic upgrade/downgrade round-trips and paper order, idempotency, and recovery checks against that database.
+- Overrode the NautilusTrader 1.231.0 pin `fsspec==2026.2.0` with `fsspec>=2026.6.0`. The lock resolved `fsspec` 2026.9.0, which closes PYSEC-2026-4217. NautilusTrader stays 1.231.0. The `2.0.0` release candidates stay unused. Live trading stays disabled.
+
 ## 0.9.1 — 2026-11-11 — Nautilus health and local auth follow-up
 
 - Checked NautilusTrader 1.231.0 on the paper path: import, backtest node startup and shutdown, instrument load, a filled paper position, Shield round-trip PnL, kill-switch refusal, and a three-bar backtest. The report is `docs/status/NAUTILUS_HEALTH.md`.

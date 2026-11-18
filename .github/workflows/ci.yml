@@ -1,0 +1,152 @@
+# Disposable database credentials below belong to the CI runner only.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu:
+    name: ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: cyvora
+          POSTGRES_PASSWORD: cyvora_ci
+          POSTGRES_DB: cyvora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cyvora -d cyvora"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CYVORA_DATABASE_URL: postgresql+psycopg://cyvora:cyvora_ci@127.0.0.1:5432/cyvora
+      CYVORA_TEST_DATABASE_URL: postgresql+psycopg://cyvora:cyvora_ci@127.0.0.1:5432/cyvora
+      CYVORA_EXECUTION_MODE: READ_ONLY
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt offscreen libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 \
+            libgl1 \
+            libglib2.0-0 \
+            libdbus-1-3 \
+            libxkbcommon0 \
+            libxkbcommon-x11-0 \
+            libfontconfig1 \
+            libx11-6 \
+            libxext6 \
+            libxrender1 \
+            libxi6 \
+            libxcb1 \
+            libxcb-cursor0 \
+            libnss3
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pip-audit --skip-editable --progress-spinner off
+      - run: uv run pytest
+      - run: uv run python -m apps.desktop.main --smoke
+
+  windows:
+    name: windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CYVORA_DATABASE_URL: postgresql+psycopg://cyvora:cyvora_ci@127.0.0.1:5432/cyvora
+      CYVORA_TEST_DATABASE_URL: postgresql+psycopg://cyvora:cyvora_ci@127.0.0.1:5432/cyvora
+      CYVORA_EXECUTION_MODE: READ_ONLY
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start PostgreSQL 17
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $service = "postgresql-x64-17"
+          $pgBin = Join-Path $env:ProgramFiles "PostgreSQL\17\bin"
+          $psql = Join-Path $pgBin "psql.exe"
+          if (-not (Test-Path $psql)) {
+            winget install --id PostgreSQL.PostgreSQL.17 --exact --disable-interactivity --accept-package-agreements --accept-source-agreements
+          }
+          if (-not (Test-Path $psql)) {
+            throw "PostgreSQL 17 client was not found."
+          }
+          Set-Service -Name $service -StartupType Manual
+          if ((Get-Service -Name $service).Status -ne "Running") {
+            Start-Service -Name $service
+          }
+          $ready = $false
+          foreach ($attempt in 1..30) {
+            foreach ($candidate in @("root", "postgres")) {
+              $env:PGPASSWORD = $candidate
+              & $psql -U postgres -h 127.0.0.1 -d postgres -tAc "SELECT 1" | Out-Null
+              if ($LASTEXITCODE -eq 0) {
+                $ready = $true
+                break
+              }
+            }
+            if ($ready) { break }
+            Start-Sleep -Seconds 2
+          }
+          if (-not $ready) {
+            throw "PostgreSQL 17 did not accept connections."
+          }
+          & $psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1 -c @'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'cyvora') THEN
+              CREATE ROLE cyvora LOGIN PASSWORD 'cyvora_ci';
+            ELSE
+              ALTER ROLE cyvora WITH LOGIN PASSWORD 'cyvora_ci';
+            END IF;
+          END
+          $$;
+          '@
+          if ($LASTEXITCODE -ne 0) { throw "The cyvora role was not created." }
+          $dbName = & $psql -U postgres -h 127.0.0.1 -d postgres -tAc "SELECT datname FROM pg_database WHERE datname = 'cyvora'"
+          if ("$dbName".Trim() -ne "cyvora") {
+            & $psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE cyvora OWNER cyvora"
+            if ($LASTEXITCODE -ne 0) { throw "The cyvora database was not created." }
+          }
+          & $psql -U postgres -h 127.0.0.1 -d cyvora -v ON_ERROR_STOP=1 -c "GRANT ALL ON SCHEMA public TO cyvora"
+          if ($LASTEXITCODE -ne 0) { throw "The cyvora role could not use schema public." }
+          $env:PGPASSWORD = "cyvora_ci"
+          $version = (& $psql -U cyvora -h 127.0.0.1 -d cyvora -tAc "SHOW server_version").Trim()
+          if ($LASTEXITCODE -ne 0) { throw "The cyvora role could not sign in." }
+          if (-not $version.StartsWith("17.")) {
+            throw "PostgreSQL 17 is required. The server reported $version."
+          }
+          Write-Output "PostgreSQL $version is accepting connections."
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pip-audit --skip-editable --progress-spinner off
+      - run: uv run pytest
+      - run: uv run python -m apps.desktop.main --smoke

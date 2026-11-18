@@ -21,7 +21,7 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.9.1"
+APP_VERSION = "0.9.2"
 PHASE = "9"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})

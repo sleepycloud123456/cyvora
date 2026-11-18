@@ -1,6 +1,6 @@
 [project]
 name = "cyvora"
-version = "0.9.1"
+version = "0.9.2"
 description = "CYVORA Autonomous Trading Platform — simulation and paper broker"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -25,6 +25,7 @@ cyvora-supervisor = "operations.startup:main"
 [dependency-groups]
 dev = [
     "mypy>=1.13",
+    "pip-audit>=2.9",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-qt>=4.4",
@@ -57,9 +58,12 @@ packages = [
 
 # Stable NautilusTrader 1.231.0 on Python 3.13. Do not add a 2.x pre-release.
 # See docs/architecture/TECHNICAL_DECISIONS.md.
+# NautilusTrader 1.231.0 requires fsspec==2026.2.0 (PYSEC-2026-4217). The
+# override installs a patched fsspec. The paper tests cover that resolution.
 
 [tool.uv]
 package = true
+override-dependencies = ["fsspec>=2026.6.0"]
 
 [tool.ruff]
 line-length = 100
