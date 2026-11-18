@@ -5,9 +5,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -53,6 +55,17 @@ class DashboardPage(QWidget):
         self.recent = QLabel("Recent paper orders have not been loaded.")
         self.recent.setObjectName("EmptyState")
         self.recent.setWordWrap(True)
+        self.run_cycle = QPushButton("Run one read-only cycle")
+        self.run_cycle.setObjectName("SecondaryButton")
+        self.repeat_cycle = QCheckBox("Repeat on the configured interval")
+        self.radar_status = QLabel("No radar cycle has been stored.")
+        self.radar_status.setObjectName("EmptyState")
+        self.radar_status.setWordWrap(True)
+        refresh = QHBoxLayout()
+        refresh.setSpacing(16)
+        refresh.addWidget(self.run_cycle)
+        refresh.addWidget(self.repeat_cycle)
+        refresh.addStretch(1)
         self.details = DetailDisclosure("Details")
         self.details.add(self.notice)
 
@@ -88,6 +101,8 @@ class DashboardPage(QWidget):
         body_layout.setContentsMargins(0, 12, 0, 0)
         body_layout.setSpacing(28)
         body_layout.addLayout(hero)
+        body_layout.addLayout(refresh)
+        body_layout.addWidget(self.radar_status)
         body_layout.addLayout(status)
         body_layout.addWidget(self.recent)
         body_layout.addWidget(self.details)
@@ -107,6 +122,14 @@ class DashboardPage(QWidget):
         for card in self._cards():
             card.set_status("Not checked", "The status probe is idle in this session.")
         self._show_metric_message("Not checked", "The paper book has not been read.")
+
+    def show_radar_status(self, text: str) -> None:
+        self.radar_status.setText(text)
+
+    def set_cycle_running(self, running: bool) -> None:
+        self.run_cycle.setEnabled(not running)
+        if running:
+            self.radar_status.setText("Read-only radar cycle is running. No order will be sent.")
 
     def show_probe_failure(self, message: str) -> None:
         self.database_card.set_status("unknown", message)
