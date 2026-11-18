@@ -128,7 +128,11 @@ def normalize_preferences(
 
 
 def _threshold(value: str | None) -> str | None:
-    """Keep a recorded threshold. Radar and Shield do not read it."""
+    """Parse the recorded profile threshold.
+
+    The paper strategy runner reads this value before it builds an order.
+    Radar scoring and Shield do not. A missing value stays missing.
+    """
 
     if value is None or value.strip() == "":
         return None

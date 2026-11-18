@@ -143,6 +143,54 @@ def test_motion_flag_stops_the_hologram(qtbot) -> None:  # type: ignore[no-untyp
     assert window.dashboard.hologram.animating() is False
 
 
+def test_research_pages_have_run_and_paper_entry(qtbot) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QPushButton
+
+    from apps.desktop.pages.simulation_page import SimulationPage
+
+    backtest = SimulationPage("backtests", paper_enabled=False)
+    paper = SimulationPage("paper", paper_enabled=True)
+    qtbot.addWidget(backtest)
+    qtbot.addWidget(paper)
+    assert any(button.text() == "Run" for button in backtest.findChildren(QPushButton))
+    assert any(button.text() == "Compare" for button in backtest.findChildren(QPushButton))
+    assert paper.paper_button.isEnabled() is True
+    read_only = SimulationPage("paper", paper_enabled=False)
+    qtbot.addWidget(read_only)
+    assert read_only.paper_button.isEnabled() is False
+    backtest.show_report(
+        {
+            "kind": "backtest",
+            "strategy_id": "momentum",
+            "equity_curve": ["1000", "1010"],
+            "drawdown_curve": ["0", "0.01"],
+            "orders": [
+                {
+                    "side": "BUY",
+                    "state": "CONFIRMED",
+                    "quantity": "1",
+                    "fill_price": "0.2",
+                    "shield_decision": "paper_approved",
+                    "reason": "",
+                }
+            ],
+            "strategies": [
+                {
+                    "name": "Momentum",
+                    "net_profit": "10",
+                    "trade_count": 1,
+                    "max_drawdown": "0.01",
+                }
+            ],
+            "performance": {"net_profit": "10", "max_drawdown": "0.01"},
+        }
+    )
+    assert len(backtest.equity._points) == 2
+    assert backtest.trades.rowCount() == 1
+    assert backtest.comparisons.rowCount() == 1
+    assert "not deployed" in backtest.notice.text()
+
+
 def test_hologram_frame_uses_purple(qtbot) -> None:  # type: ignore[no-untyped-def]
     hologram = Hologram(animated=False)
     qtbot.addWidget(hologram)

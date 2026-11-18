@@ -427,6 +427,7 @@ def _report(
                 spec.strategy.parameter_pairs(),
             ),
         ),
+        equity_curve=curve,
     )
 
 

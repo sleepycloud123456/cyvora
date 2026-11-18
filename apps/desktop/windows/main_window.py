@@ -30,7 +30,7 @@ from apps.desktop.pages.trading_page import TradingPage
 from apps.desktop.services.probe import StatusProbe
 from apps.desktop.services.radar_worker import RadarCycleWorker, RadarLoadWorker, WatchWorker
 from apps.desktop.services.shield_worker import ShieldLoadWorker
-from apps.desktop.services.simulation_worker import SimulationLoadWorker
+from apps.desktop.services.simulation_worker import SimulationApiWorker, SimulationLoadWorker
 from apps.desktop.services.terminal_worker import TerminalActionWorker, TerminalLoadWorker
 from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         self._trading_load: TradingLoadWorker | None = None
         self._shield_load: ShieldLoadWorker | None = None
         self._simulation_load: SimulationLoadWorker | None = None
+        self._simulation_api: SimulationApiWorker | None = None
         self._terminal_load: TerminalLoadWorker | None = None
         self._terminal_action: TerminalActionWorker | None = None
         self._status: StatusSnapshot | None = None
@@ -138,8 +139,11 @@ class MainWindow(QMainWindow):
         self.orders = TradingPage("orders")
         self.strategies = TradingPage("strategies")
         self.risk = ShieldPage()
-        self.backtests = SimulationPage("backtests")
-        self.paper = SimulationPage("paper")
+        paper_on = self._settings.execution_mode is ExecutionMode.PAPER
+        self.backtests = SimulationPage("backtests", paper_enabled=paper_on)
+        self.paper = SimulationPage("paper", paper_enabled=paper_on)
+        self._connect_simulation(self.backtests)
+        self._connect_simulation(self.paper)
         self.portfolio = PortfolioPage()
         self.analytics = AnalyticsPage()
         self.analyst = AnalystPage()
@@ -331,6 +335,7 @@ class MainWindow(QMainWindow):
             self._trading_load,
             self._shield_load,
             self._simulation_load,
+            self._simulation_api,
             self._terminal_load,
             self._terminal_action,
         ):
@@ -377,18 +382,78 @@ class MainWindow(QMainWindow):
         typed = tuple(item for item in rows if isinstance(item, ShieldNotice))
         self.risk.show_snapshot(snapshot, typed)
 
+    def _connect_simulation(self, page: SimulationPage) -> None:
+        page.refresh_requested.connect(lambda: self._simulation_action(page, "list", {}))
+        page.import_requested.connect(
+            lambda payload: self._simulation_action(page, "import", payload)
+        )
+        page.collect_requested.connect(
+            lambda payload: self._simulation_action(page, "collect", payload)
+        )
+        page.quality_requested.connect(
+            lambda payload: self._simulation_action(page, "quality", payload)
+        )
+        page.run_requested.connect(
+            lambda payload: self._simulation_action(page, "backtest", payload)
+        )
+        page.compare_requested.connect(
+            lambda payload: self._simulation_action(page, "compare", payload)
+        )
+        page.paper_requested.connect(
+            lambda payload: self._simulation_action(page, "paper", payload)
+        )
+
+    def _simulation_action(self, page: SimulationPage, action: str, payload: object) -> None:
+        if self._closing:
+            return
+        if self._simulation_api is not None and self._simulation_api.isRunning():
+            page.show_message("A simulation request is already running.")
+            return
+        target = "backtests" if page is self.backtests else "paper"
+        self._simulation_api = SimulationApiWorker(self._settings, action, target, payload)
+        self._simulation_api.finished_ok.connect(self._simulation_finished)
+        self._simulation_api.failed.connect(self._simulation_message)
+        self._simulation_api.start()
+
+    def _simulation_finished(self, action: str, target: str, payload: object) -> None:
+        if self._closing:
+            return
+        page = self.backtests if target == "backtests" else self.paper
+        if action == "list" and isinstance(payload, dict):
+            datasets = _section(payload.get("datasets"), "datasets")
+            runs = _section(payload.get("runs"), "runs")
+            audits = _section(payload.get("audits"), "audits")
+            self.backtests.show_catalog(datasets, runs)
+            self.paper.show_catalog(datasets, ())
+            self.paper.show_audits(audits)
+            return
+        if action in {"import", "collect", "quality"} and isinstance(payload, dict):
+            page.show_quality(payload)
+            page.show_message(
+                "The dataset was stored. Candle volume is not executable depth. "
+                "Live trading stays locked."
+            )
+            return
+        if action in {"backtest", "compare"}:
+            page.show_report(payload)
+            return
+        if action == "paper" and isinstance(payload, dict):
+            refusal = payload.get("refusal")
+            if refusal:
+                page.show_message(f"Paper order refused: {refusal}. Live trading stays locked.")
+                return
+            page.show_message(
+                f"Paper order {payload.get('state')} through {payload.get('shield_decision')}. "
+                "This is a simulator result. Live trading stays locked."
+            )
+
     def _load_simulation(self) -> None:
-        if not self._settings.database_url:
+        if self._settings.api_token is None or not self._settings.database_url:
             message = "Simulation storage is not configured. No backtest results are shown."
             self.backtests.show_message(message)
             self.paper.show_message(message)
             return
-        if self._simulation_load is not None and self._simulation_load.isRunning():
-            return
-        self._simulation_load = SimulationLoadWorker(self._settings)
-        self._simulation_load.loaded.connect(self._apply_simulation)
-        self._simulation_load.failed.connect(self._simulation_message)
-        self._simulation_load.start()
+        self._simulation_action(self.backtests, "list", {})
 
     def _apply_simulation(self, backtests: str, paper: str) -> None:
         if self._closing:
@@ -538,7 +603,8 @@ class MainWindow(QMainWindow):
         self.positions.show_position_lines(snapshot.portfolio.positions)
         self.strategies.show_performance(
             "Closed paper campaigns are listed on Analytics. "
-            "Start and stop change the paper registry only. Neither submits an order."
+            "Start asks the supervisor to evaluate the strategy through Shield. "
+            "Live trading stays locked."
         )
         finished = "No radar cycle is stored."
         if snapshot.analyst.findings:
@@ -618,3 +684,10 @@ class MainWindow(QMainWindow):
             "profile",
             (profile_id, name, strategies, self.settings_page.profile_threshold.text()),
         )
+
+
+def _section(payload: object, key: str) -> object:
+    if not isinstance(payload, dict):
+        return []
+    value = payload.get(key)
+    return value if isinstance(value, list) else []

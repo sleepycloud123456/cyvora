@@ -199,3 +199,17 @@ class TradingSnapshot:
     orders: tuple[OrderRecord, ...]
     positions: tuple[PositionRecord, ...]
     strategies: tuple[StrategyRecord, ...]
+
+
+@dataclass(frozen=True)
+class StrategyAudit:
+    """One paper-strategy evaluation. It cannot record a live order."""
+
+    strategy_id: str
+    action: str
+    reason: str
+    signal_strength: str | None
+    threshold: str | None
+    client_order_id: str | None
+    created_at: datetime
+    live_trading_enabled: bool = False

@@ -6,7 +6,12 @@ from datetime import datetime
 
 from backtesting.history import require_dataset
 from backtesting.reports import dump_report
-from domain.simulation import ExecutionAssumption, HistoricalDataset, SimulationReport
+from domain.simulation import (
+    DatasetQuality,
+    ExecutionAssumption,
+    HistoricalDataset,
+    SimulationReport,
+)
 
 
 class MemorySimulationStore:
@@ -16,6 +21,8 @@ class MemorySimulationStore:
         self.datasets: dict[str, HistoricalDataset] = {}
         self.runs: list[dict[str, object]] = []
         self.assumptions: list[ExecutionAssumption] = []
+        self.qualities: list[DatasetQuality] = []
+        self.collections: list[tuple[str, str, str, int, datetime]] = []
 
     def save_dataset(self, dataset: HistoricalDataset, now: datetime) -> HistoricalDataset:
         del now
@@ -51,3 +58,26 @@ class MemorySimulationStore:
 
     def list_assumptions(self) -> tuple[ExecutionAssumption, ...]:
         return tuple(self.assumptions)
+
+    def save_quality(self, report: DatasetQuality) -> None:
+        if report.live_trading_enabled:
+            from domain.exceptions import TradingValidationError
+
+            raise TradingValidationError("A quality report cannot enable live trading.")
+        self.qualities.append(report)
+
+    def latest_quality(self, dataset_id: str) -> DatasetQuality | None:
+        matches = [item for item in self.qualities if item.dataset_id == dataset_id]
+        if not matches:
+            return None
+        return matches[-1]
+
+    def record_collection(
+        self,
+        dataset_id: str,
+        source: str,
+        detail: str,
+        bar_count: int,
+        collected_at: datetime,
+    ) -> None:
+        self.collections.append((dataset_id, source, detail, bar_count, collected_at))

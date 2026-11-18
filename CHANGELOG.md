@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.3 — 2026-11-18 — Historical data, paper pages, and a strategy runner
+
+- Added CSV, Parquet, stored-radar, GMGN kline, and supplied-adapter imports. Quote volume stays volume. It is not executable depth. Quality reports record gaps, staleness, outliers, and whether a bar has reserves or displayed depth.
+- Removed the 400-bar and 4-mint research caps. One request can hold 50,000 bars and 512 mints, stored in batches. PostgreSQL revision `0009_historical_pipeline` keeps quality, collection, and paper-strategy audit rows. Live flags stay false.
+- Replaced the Paper Trading and Backtesting placeholders with dataset selection, import, strategy parameters, Run, stored equity, drawdown, trades, and comparisons. Manual paper entry is enabled only in `PAPER` mode and calls the simulation routes.
+- Starting a strategy now asks the supervisor to evaluate it. Orders go through Shield, idempotency, the kill switch, and the recovery block. The active profile signal threshold gates entries. Rate and size limits cannot be raised by strategy parameters. Every evaluation is audited. Live trading stays locked.
+
 ## 0.9.2 — 2026-11-11 — Terminal visual redesign
 
 - Restyled CYVORA Terminal: black surfaces, a purple accent, a slim icon rail, and shorter pages. Secondary copy sits behind Details. Empty states stay one line.

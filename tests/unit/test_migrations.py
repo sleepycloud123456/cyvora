@@ -94,6 +94,22 @@ def test_readiness_revision_keeps_live_trading_unauthorized() -> None:
     assert "live_authorized" not in source
 
 
+def test_historical_pipeline_revision_keeps_live_trading_off() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261118_0009_historical_pipeline.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0009_historical_pipeline"' in source
+    assert 'down_revision: str | None = "0008_readiness"' in source
+    assert "simulation_quality_reports" in source
+    assert "simulation_collections" in source
+    assert "paper_strategy_audits" in source
+    assert "ck_simulation_quality_live" in source
+    assert "ck_paper_strategy_audits_live" in source
+    assert "ix_simulation_bars_dataset_time" in source
+    assert "live_trading_enabled IS false" in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -104,5 +120,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0008_readiness" in result.stdout
+    assert "0009_historical_pipeline" in result.stdout
     assert "postgresql" not in result.stdout.lower()

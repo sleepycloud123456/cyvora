@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backtesting.history import bar_from_radar_candle, require_dataset
+from backtesting.history import OPERATIONAL_BAR_LIMIT, bar_from_radar_candle, require_dataset
 from backtesting.reports import dump_report
 from config.settings import Settings
 from database.connection import create_database_engine
@@ -17,8 +17,10 @@ from database.models.radar import LiquiditySnapshot, Token, TokenCandle
 from database.models.simulation import (
     SimulationAssumption,
     SimulationBar,
+    SimulationCollection,
     SimulationDataset,
     SimulationMember,
+    SimulationQualityReport,
     SimulationRun,
     SimulationSignalRow,
 )
@@ -28,13 +30,17 @@ from domain.exceptions import (
     TradingValidationError,
 )
 from domain.simulation import (
+    DatasetQuality,
     ExecutionAssumption,
     HistoricalBar,
     HistoricalDataset,
     HistoricalSignal,
+    QualityFinding,
     SimulationReport,
     UniverseMember,
 )
+
+_INSERT_BATCH = 500
 
 logger = logging.getLogger("cyvora.simulation")
 
@@ -63,8 +69,14 @@ class PostgresSimulationRepository:
                         live_trading_enabled=False,
                     )
                 )
-                for bar in checked.bars:
-                    session.add(_bar_row(checked.dataset_id, bar))
+                bars = checked.bars
+                for offset in range(0, len(bars), _INSERT_BATCH):
+                    session.add_all(
+                        [
+                            _bar_row(checked.dataset_id, bar)
+                            for bar in bars[offset : offset + _INSERT_BATCH]
+                        ]
+                    )
                 for signal in checked.signals:
                     session.add(
                         SimulationSignalRow(
@@ -270,15 +282,18 @@ class PostgresSimulationRepository:
                         .where(TokenCandle.token_id == token.id)
                         .order_by(TokenCandle.candle_time)
                     ).all()
-                    if len(candles) > 400:
-                        limitations.append("radar_import_kept_the_oldest_400_candles")
+                    if len(candles) > OPERATIONAL_BAR_LIMIT:
+                        raise TradingValidationError(
+                            "Stored radar candles exceed the operational bar limit. "
+                            "The series was not shortened. Split the import."
+                        )
                     snapshots = session.scalars(
                         select(LiquiditySnapshot)
                         .where(LiquiditySnapshot.token_id == token.id)
                         .order_by(LiquiditySnapshot.retrieved_at)
                     ).all()
                     seen_times: set[datetime] = set()
-                    for candle in candles[:400]:
+                    for candle in candles:
                         snapshot = _snapshot_at(snapshots, candle.candle_time)
                         evidence = () if snapshot is None else _evidence(snapshot.evidence)
                         adapted, notes = bar_from_radar_candle(
@@ -323,6 +338,132 @@ class PostgresSimulationRepository:
         finally:
             engine.dispose()
         return self.save_dataset(dataset, now)
+
+    def save_quality(self, report: DatasetQuality) -> None:
+        if report.live_trading_enabled:
+            raise TradingValidationError("A quality report cannot enable live trading.")
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                session.add(_quality_row(report))
+                session.commit()
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError, TradingValidationError):
+            raise
+        except Exception as exc:
+            logger.warning("simulation quality failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("The quality report could not be stored.") from None
+        finally:
+            engine.dispose()
+
+    def latest_quality(self, dataset_id: str) -> DatasetQuality | None:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                row = session.scalar(
+                    select(SimulationQualityReport)
+                    .where(SimulationQualityReport.dataset_id == dataset_id)
+                    .order_by(SimulationQualityReport.checked_at.desc())
+                )
+                if row is None:
+                    return None
+                return _quality(row)
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError):
+            raise
+        except Exception as exc:
+            logger.warning("simulation quality read failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("The quality report could not be read.") from None
+        finally:
+            engine.dispose()
+
+    def record_collection(
+        self,
+        dataset_id: str,
+        source: str,
+        detail: str,
+        bar_count: int,
+        collected_at: datetime,
+    ) -> None:
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                session.add(
+                    SimulationCollection(
+                        dataset_id=dataset_id,
+                        source=source[:40],
+                        detail=detail[:240],
+                        bar_count=bar_count,
+                        collected_at=collected_at,
+                        live_trading_enabled=False,
+                    )
+                )
+                session.commit()
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError):
+            raise
+        except Exception as exc:
+            logger.warning("simulation collection failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("The collection record could not be stored.") from None
+        finally:
+            engine.dispose()
+
+
+def _quality_row(report: DatasetQuality) -> SimulationQualityReport:
+    return SimulationQualityReport(
+        dataset_id=report.dataset_id,
+        checked_at=report.checked_at,
+        bar_count=report.bar_count,
+        mint_count=report.mint_count,
+        gap_count=report.gap_count,
+        stale=report.stale,
+        outlier_count=report.outlier_count,
+        fillable_bar_count=report.fillable_bar_count,
+        reserve_bar_count=report.reserve_bar_count,
+        depth_bar_count=report.depth_bar_count,
+        volume_only_bar_count=report.volume_only_bar_count,
+        limitations=list(report.limitations),
+        findings=[
+            {
+                "kind": item.kind,
+                "mint": item.mint,
+                "observed_at": None if item.observed_at is None else item.observed_at.isoformat(),
+                "detail": item.detail,
+            }
+            for item in report.findings
+        ],
+        live_trading_enabled=False,
+    )
+
+
+def _quality(row: SimulationQualityReport) -> DatasetQuality:
+    findings: list[QualityFinding] = []
+    for item in row.findings:
+        observed = item.get("observed_at")
+        moment = None
+        if isinstance(observed, str) and observed:
+            moment = datetime.fromisoformat(observed)
+        findings.append(
+            QualityFinding(
+                str(item.get("kind", "")),
+                str(item.get("mint", "")),
+                moment,
+                str(item.get("detail", "")),
+            )
+        )
+    return DatasetQuality(
+        dataset_id=row.dataset_id,
+        checked_at=row.checked_at,
+        bar_count=row.bar_count,
+        mint_count=row.mint_count,
+        gap_count=row.gap_count,
+        stale=row.stale,
+        outlier_count=row.outlier_count,
+        fillable_bar_count=row.fillable_bar_count,
+        reserve_bar_count=row.reserve_bar_count,
+        depth_bar_count=row.depth_bar_count,
+        volume_only_bar_count=row.volume_only_bar_count,
+        limitations=tuple(row.limitations),
+        findings=tuple(findings),
+        live_trading_enabled=False,
+    )
 
 
 def _bar_row(dataset_id: str, bar: HistoricalBar) -> SimulationBar:

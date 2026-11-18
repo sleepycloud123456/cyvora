@@ -92,6 +92,23 @@ def peak_drawdown(curve: tuple[Decimal, ...]) -> Decimal | None:
     return _drawdown(curve)
 
 
+def drawdown_series(curve: tuple[Decimal, ...]) -> tuple[Decimal, ...]:
+    """Point-by-point drop from the running peak. An empty curve stays empty."""
+
+    if not curve:
+        return ()
+    peak = curve[0]
+    points: list[Decimal] = []
+    for value in curve:
+        if value > peak:
+            peak = value
+        if peak > 0:
+            points.append((peak - value) / peak)
+        else:
+            points.append(Decimal(0))
+    return tuple(points)
+
+
 def risk_ratios(
     returns: tuple[Decimal, ...],
 ) -> tuple[Decimal | None, str | None, Decimal | None, str | None]:
