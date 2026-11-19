@@ -56,6 +56,17 @@ def test_entry_goes_through_shield_and_a_repeat_does_not_double_fill() -> None:
     assert len(store.list_orders()) == 1
 
 
+def test_ranked_clear_security_can_enter() -> None:
+    store = MemoryTradingStore()
+    result = run_once(**_kwargs(store, (_candidate(lifecycle="ranked"),), _quotes()))
+    assert result.submitted_count == 1
+    assert result.decisions[-1].action == "submitted"
+    assert result.decisions[-1].live_trading_enabled is False
+    order = store.list_orders()[0]
+    assert order.shield_decision == PAPER_APPROVED
+    assert order.simulated is True
+
+
 def test_filters_kill_switch_pause_and_exposure_cap_reject_entries() -> None:
     low = MemoryTradingStore()
     scored = run_once(**_kwargs(low, (_candidate(score=Decimal(40)),), _quotes()))

@@ -46,6 +46,7 @@ Recorded on 2026-11-19 after the autonomous paper trader:
 - The loaded API mode is `PAPER`. Live trading stayed disabled. No wallet was read and no transaction was signed.
 - Two supervisor passes with `--paper-trader` stored decision rows and virtual equity of 10 SOL. The kill switch was released, Shield was not paused, and recovery did not block entries. Pass 1 refused LOOSY at score 62.40 because the score is below 65. Pass 2 refused FIONA at score 73.79 because the lifecycle was not `watch_suggested`. No paper order was submitted. The dashboard page bound those two decision lines, status `running`, kill switch `released`, and two equity points.
 - A free-plan GMGN 429 on `token_top_holders` stopped the remainder of each cycle. The calls that succeeded were still stored. The trader did not add a second radar cycle.
+- A follow-up on the same branch also accepts lifecycle `ranked` when security is `APPROVED_FOR_FURTHER_ANALYSIS`. Shield still decides the order. `watch_suggested` remains eligible.
 
 Recorded on 2026-11-18 after the historical pipeline, research pages, and paper strategy runner:
 

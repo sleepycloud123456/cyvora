@@ -37,7 +37,6 @@ _LATENCY = LatencyModel(0, 120)
 _SIZE_DECIMALS = 6
 _PRICE_DECIMALS = 9
 _QUOTE_DECIMALS = 9
-_WATCH = "watch_suggested"
 _ENTRY_LIFECYCLES = frozenset({"watch_suggested", "ranked"})
 _CLEAR = "APPROVED_FOR_FURTHER_ANALYSIS"
 _ORDER_BLOCKS = frozenset({"kill_switch", "kill_switch_unreadable", "entries_blocked"})
