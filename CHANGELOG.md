@@ -8,6 +8,7 @@
 - Nautilus fills stay inside the engine. They are not copied into the operator paper book.
 - The logon launcher `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\CYVORA.cmd` passes `--paper-trader`. That file is not in the repository. See `docs/trading/PAPER_TRADER.md`.
 - Revision `0011_worker_kinds` lets the supervisor store `paper_strategy` and `paper_trader` worker rows. Live trading stays locked.
+- `CYVORA_PAPER_ALLOW_RISKY_SECURITY` defaults to false. When set, the paper loop may enter `CAUTION`, `HIGH_RISK`, and `UNKNOWN` as well as a clear security result. `REJECTED` stays blocked. The flag cannot enable live trading.
 
 ## 0.9.3 — 2026-11-18 — Historical data, paper pages, and a strategy runner
 
