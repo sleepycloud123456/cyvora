@@ -38,6 +38,7 @@ _SIZE_DECIMALS = 6
 _PRICE_DECIMALS = 9
 _QUOTE_DECIMALS = 9
 _WATCH = "watch_suggested"
+_ENTRY_LIFECYCLES = frozenset({"watch_suggested", "ranked"})
 _CLEAR = "APPROVED_FOR_FURTHER_ANALYSIS"
 _ORDER_BLOCKS = frozenset({"kill_switch", "kill_switch_unreadable", "entries_blocked"})
 
@@ -357,7 +358,7 @@ def _filter_reason(candidate: RadarCandidate, min_score: Decimal) -> str | None:
         return "score_missing"
     if candidate.score < min_score:
         return "below_score"
-    if candidate.lifecycle != _WATCH:
+    if candidate.lifecycle not in _ENTRY_LIFECYCLES:
         return "lifecycle"
     if candidate.security_category != _CLEAR:
         return "security_not_clear"
