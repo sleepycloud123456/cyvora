@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 
 from domain.enums import ExecutionMode
+from domain.paper_trader import PaperTraderView, unavailable_trader
 from domain.shield import ShieldDecisionRecord, ShieldNotice, ShieldSnapshot
 from domain.status import StatusSnapshot
 from domain.terminal import (
@@ -42,6 +43,7 @@ def assemble(
     api_port: int,
     status: StatusSnapshot | None,
     now: datetime,
+    paper_trader: PaperTraderView | None = None,
 ) -> TerminalSnapshot:
     """Build the pages. Pending notices are the ones not already stored."""
 
@@ -85,5 +87,8 @@ def assemble(
         profiles=profiles,
         active_profile_id=active,
         settings=settings,
+        paper_trader=paper_trader
+        if paper_trader is not None
+        else unavailable_trader("The paper trader has not been loaded."),
         generated_at=now,
     )

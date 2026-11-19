@@ -13,11 +13,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from apps.desktop.charts.series_chart import SeriesChart
 from apps.desktop.components.disclosure import DetailDisclosure
 from apps.desktop.components.hologram import Hologram
 from apps.desktop.components.status_card import StatusCard
+from domain.paper_trader import PaperTraderView, unavailable_trader
 from domain.status import StatusSnapshot
-from domain.terminal import PortfolioView
+from domain.terminal import PortfolioView, PositionLine, RecentOrder
 from terminal.present import money
 
 _PRIMARY = (
@@ -53,6 +55,20 @@ class DashboardPage(QWidget):
         self.recent = QLabel("Recent paper orders have not been loaded.")
         self.recent.setObjectName("EmptyState")
         self.recent.setWordWrap(True)
+        self.trader_title = QLabel("Paper trader")
+        self.trader_title.setObjectName("Headline")
+        self.trader_card = StatusCard("Paper trader")
+        self.kill_card = StatusCard("Kill switch")
+        self.equity = SeriesChart("No paper-trader equity points are stored.")
+        self.trader_positions = QLabel("Open paper positions have not been loaded.")
+        self.trader_positions.setObjectName("EmptyState")
+        self.trader_positions.setWordWrap(True)
+        self.trader_trades = QLabel("Recent paper trades have not been loaded.")
+        self.trader_trades.setObjectName("EmptyState")
+        self.trader_trades.setWordWrap(True)
+        self.trader_decisions = QLabel("Paper trader decisions have not been loaded.")
+        self.trader_decisions.setObjectName("EmptyState")
+        self.trader_decisions.setWordWrap(True)
         self.details = DetailDisclosure("Details")
         self.details.add(self.notice)
 
@@ -87,9 +103,20 @@ class DashboardPage(QWidget):
         body_layout = QVBoxLayout(body)
         body_layout.setContentsMargins(0, 12, 0, 0)
         body_layout.setSpacing(28)
+        trader_status = QHBoxLayout()
+        trader_status.setSpacing(16)
+        trader_status.addWidget(self.trader_card)
+        trader_status.addWidget(self.kill_card)
+
         body_layout.addLayout(hero)
         body_layout.addLayout(status)
         body_layout.addWidget(self.recent)
+        body_layout.addWidget(self.trader_title)
+        body_layout.addLayout(trader_status)
+        body_layout.addWidget(self.equity)
+        body_layout.addWidget(self.trader_positions)
+        body_layout.addWidget(self.trader_trades)
+        body_layout.addWidget(self.trader_decisions)
         body_layout.addWidget(self.details)
         body_layout.addStretch(1)
         scroll = QScrollArea()
@@ -98,6 +125,11 @@ class DashboardPage(QWidget):
         scroll.setWidget(body)
         layout.addWidget(scroll)
         self._show_metric_message("Not checked", "The paper book has not been read.")
+        self.show_trader(
+            unavailable_trader("The paper trader has not been read."),
+            (),
+            (),
+        )
 
     def set_checking(self) -> None:
         for card in self._cards():
@@ -122,6 +154,38 @@ class DashboardPage(QWidget):
     def show_portfolio_message(self, text: str) -> None:
         self._show_metric_message("unavailable", text)
         self.recent.setText(text)
+        self.show_trader(unavailable_trader(text), (), ())
+
+    def show_trader(
+        self,
+        view: PaperTraderView,
+        positions: tuple[PositionLine, ...],
+        recent: tuple[RecentOrder, ...],
+    ) -> None:
+        self.trader_card.set_status(view.status, view.status_detail)
+        self.kill_card.set_status(view.kill_switch, view.kill_detail)
+        self.equity.set_points(list(view.equity_points))
+        bankroll = "unavailable" if view.bankroll is None else f"{money(view.bankroll)} SOL"
+        if positions:
+            lines = [_position_text(item) for item in positions]
+            self.trader_positions.setText(
+                f"Virtual bankroll {bankroll}. Open positions: " + "; ".join(lines)
+            )
+        else:
+            self.trader_positions.setText(
+                f"Virtual bankroll {bankroll}. No open paper positions are stored."
+            )
+        if recent:
+            trades = [
+                f"{item.symbol} {item.side} {item.state} {item.shield_decision}" for item in recent
+            ]
+            self.trader_trades.setText("Recent paper trades: " + "; ".join(trades))
+        else:
+            self.trader_trades.setText("No simulated orders are stored.")
+        if view.decisions:
+            self.trader_decisions.setText("Decision log: " + "; ".join(view.decisions))
+        else:
+            self.trader_decisions.setText("No paper-trader decisions are stored.")
 
     def show_portfolio(self, view: PortfolioView) -> None:
         self._set_money("verified_equity", view.verified_equity, None, view.verified_equity_detail)
@@ -171,6 +235,12 @@ class DashboardPage(QWidget):
         if unit:
             text = f"{text} {unit}"
         self._metrics[name].set_status(text, detail)
+
+
+def _position_text(line: PositionLine) -> str:
+    mark = "unavailable" if line.current_price is None else money(line.current_price)
+    pnl = "unavailable" if line.unrealized_pnl is None else money(line.unrealized_pnl)
+    return f"{line.symbol} qty {line.quantity} mark {mark} unrealized {pnl}"
 
 
 _METRIC_TITLES = (

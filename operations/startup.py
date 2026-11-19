@@ -19,6 +19,7 @@ def execute(
     *,
     ticks: int,
     allow_radar_network: bool,
+    allow_paper_trader: bool = False,
 ) -> tuple[RecoveryReport, RunReport]:
     """Recover the paper book, then run the workers for ``ticks`` passes."""
 
@@ -35,7 +36,8 @@ def execute(
     supervisor = Supervisor(
         default_workers(
             settings,
-            allow_radar_network=allow_radar_network,
+            allow_radar_network=allow_radar_network or allow_paper_trader,
+            allow_paper_trader=allow_paper_trader,
             paper_entries_blocked=paper_blocked,
         ),
         restart_limit=settings.worker_restart_limit,
@@ -51,6 +53,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="cyvora-supervisor")
     parser.add_argument("--ticks", type=int, default=1)
     parser.add_argument("--include-radar", action="store_true")
+    parser.add_argument("--paper-trader", action="store_true")
     parser.add_argument("--interval-seconds", type=int, default=0)
     args = parser.parse_args(argv)
     if args.ticks < 0:
@@ -66,10 +69,24 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if args.ticks == 0:
             while True:
-                _print(*execute(settings, ticks=1, allow_radar_network=args.include_radar))
+                _print(
+                    *execute(
+                        settings,
+                        ticks=1,
+                        allow_radar_network=args.include_radar,
+                        allow_paper_trader=args.paper_trader,
+                    )
+                )
                 time.sleep(interval)
         else:
-            _print(*execute(settings, ticks=args.ticks, allow_radar_network=args.include_radar))
+            _print(
+                *execute(
+                    settings,
+                    ticks=args.ticks,
+                    allow_radar_network=args.include_radar,
+                    allow_paper_trader=args.paper_trader,
+                )
+            )
     except KeyboardInterrupt:
         print("CYVORA_SUPERVISOR_STOPPED")
         raise SystemExit(0) from None

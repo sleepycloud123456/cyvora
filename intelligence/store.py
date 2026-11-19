@@ -51,6 +51,8 @@ class AnalysisRecord:
     candles: tuple[CandlePoint, ...]
     explanation: str
     rank: int
+    base_reserve: Decimal | None = None
+    quote_reserve: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)

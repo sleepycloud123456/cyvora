@@ -28,6 +28,7 @@ Also: do not dump environment variables, do not read `.env`, and do not commit s
 - Python 3.13 only, via uv. `requires-python` is `>=3.13,<3.14`.
 - Install and run with `uv sync --frozen --all-groups` and `uv run`.
 - Execution mode is `READ_ONLY` or `PAPER`. Live mode names must keep failing validation.
+- The autonomous paper trader runs only when the supervisor is started with `--paper-trader`. It submits through Shield and cannot enable live trading.
 - The API listens on loopback. The default port is 8787.
 - PostgreSQL is the only application database. A missing server is reported as `not_configured` or left unreachable. Do not add SQLite to paper over that.
 - NautilusTrader 1.231.0 is the installed engine. Do not install a 2.x pre-release beside it. See `docs/trading/NAUTILUS_MAPPING.md`.

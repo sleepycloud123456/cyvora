@@ -251,6 +251,8 @@ class _Analysed:
     candles: tuple[CandlePoint, ...]
     routes: tuple[str, ...]
     freshness: str
+    base_reserve: Decimal | None
+    quote_reserve: Decimal | None
 
 
 async def _analyse(
@@ -332,6 +334,8 @@ async def _analyse(
         freshness = "stale"
     else:
         freshness = "fresh"
+    pool_base = None if pool is None else as_decimal(pool.payload.base_reserve)
+    pool_quote = None if pool is None else as_decimal(pool.payload.quote_reserve)
     scored = score_token(
         ScoreInputs(
             security=None if security is None else security.payload,
@@ -348,7 +352,15 @@ async def _analyse(
             sources=tuple(candidate.sources),
         )
     )
-    return _Analysed(candidate, scored, points, tuple(routes), freshness)
+    return _Analysed(
+        candidate,
+        scored,
+        points,
+        tuple(routes),
+        freshness,
+        pool_base,
+        pool_quote,
+    )
 
 
 def _apply_info(candidate: _Candidate, info: object) -> None:
@@ -393,6 +405,8 @@ def _analysis_record(item: _Analysed, explanation: str, rank: int) -> AnalysisRe
         candles=item.candles,
         explanation=explanation[:4000],
         rank=rank,
+        base_reserve=item.base_reserve,
+        quote_reserve=item.quote_reserve,
     )
 
 

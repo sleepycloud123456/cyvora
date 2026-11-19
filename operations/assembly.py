@@ -8,7 +8,10 @@ from datetime import UTC, datetime
 
 from config.settings import Settings
 from domain.operations import TickResult
+from domain.paper_trader import TraderTick
+from operations.supervisor import Worker
 from operations.workers import FreshnessWorker, NotificationWorker, PortfolioWorker, RadarWorker
+from trading.paper_trader.runtime import PaperTraderWorker, run_stored
 from trading.strategies.runner import EvaluationSummary
 from trading.strategies.runtime import PaperStrategyWorker, evaluate_stored
 
@@ -17,8 +20,9 @@ def default_workers(
     settings: Settings,
     *,
     allow_radar_network: bool,
+    allow_paper_trader: bool = False,
     paper_entries_blocked: Callable[[], bool] | None = None,
-) -> tuple[RadarWorker, FreshnessWorker, PortfolioWorker, NotificationWorker, PaperStrategyWorker]:
+) -> tuple[Worker, ...]:
     cycle = _radar_cycle(settings) if allow_radar_network else None
     configured = bool(settings.database_url)
 
@@ -29,7 +33,10 @@ def default_workers(
             entries_blocked=paper_entries_blocked,
         )
 
-    return (
+    def evaluate_trader(now: datetime) -> TraderTick:
+        return run_stored(settings, now, entries_blocked=paper_entries_blocked)
+
+    workers: list[Worker] = [
         RadarWorker(cycle),
         FreshnessWorker(
             lambda: _latest_cycle(settings),
@@ -39,7 +46,10 @@ def default_workers(
         PortfolioWorker(lambda: _open_positions(settings), database_configured=configured),
         NotificationWorker(lambda: _notice_count(settings), database_configured=configured),
         PaperStrategyWorker(evaluate_paper),
-    )
+    ]
+    if allow_paper_trader:
+        workers.append(PaperTraderWorker(evaluate_trader))
+    return tuple(workers)
 
 
 def _radar_cycle(settings: Settings) -> Callable[[datetime], TickResult]:

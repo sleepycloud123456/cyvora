@@ -53,6 +53,13 @@ class PostgresTerminalRepository:
             profiles = self._profiles()
             preferences = self._preferences()
             existing = self._notifications()
+            from database.repositories.paper_trader import PostgresPaperTraderRepository
+
+            trader = PostgresPaperTraderRepository(self._settings).load_view(
+                now,
+                stale_after_seconds=self._settings.radar_scan_interval_seconds * 3,
+                bankroll=self._settings.paper_bankroll_sol,
+            )
         except (DatabaseNotConfiguredError, DatabaseUnavailableError, TradingValidationError):
             raise
         except Exception as exc:
@@ -75,6 +82,7 @@ class PostgresTerminalRepository:
             api_port=self._settings.api_port,
             status=status,
             now=now,
+            paper_trader=trader,
         )
         self._insert(snapshot.pending_notifications, now)
         return replace(

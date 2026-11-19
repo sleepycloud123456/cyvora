@@ -396,6 +396,8 @@ def _breakdown(analysis: AnalysisRecord, price_change: Decimal | None) -> dict[s
         "symbol": analysis.symbol,
         "name": analysis.name,
         "price": format_decimal(analysis.price),
+        "base_reserve": format_decimal(analysis.base_reserve),
+        "quote_reserve": format_decimal(analysis.quote_reserve),
         "market_cap": format_decimal(analysis.market_cap),
         "liquidity": format_decimal(analysis.liquidity),
         "volume": format_decimal(analysis.volume),

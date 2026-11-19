@@ -1,6 +1,6 @@
 # Project status
 
-Date: 2026-11-18.
+Date: 2026-11-19.
 
 ## Current phase
 
@@ -12,6 +12,7 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## Completed work
 
+- Autonomous paper trader on 2026-11-19. `--paper-trader` runs the existing read-only radar cycle, filters candidates, and submits entries and exits through Shield and the paper gateway. The virtual bankroll defaults to 10 SOL. Revisions `0010_paper_trader` and `0011_worker_kinds`. The dashboard shows status, open positions, recent paper trades, virtual equity, and the decision log. Live trading stays locked. Nautilus fills stay inside the engine.
 - Historical import, quality reports, Paper Trading and Backtesting controls, and a supervised paper strategy runner on 2026-11-18. Live trading stays locked. Candle volume is not executable depth. The runner uses Shield, idempotency, the kill switch, and the active profile signal threshold.
 - Terminal visual redesign on 2026-11-11. Black surfaces, a purple accent, an icon rail, compact pages, and a dashboard hologram. Live trading stays locked. Radar, Portfolio, CYVORA Intelligence, and Settings remain in the navigation catalog and are not on the rail.
 - Phase 1 foundation, merged as PR #1.
@@ -33,6 +34,18 @@ Nothing inside Phase 9. A paper-only Nautilus health check and two local securit
 None for the readiness boundary. Live trading is still disabled. The report, a paper approval, a profile, an analyst finding, and a released kill switch do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
+
+Recorded on 2026-11-19 after the autonomous paper trader:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed: 207 source files.
+- `uv run pytest` — 177 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with mode `PAPER`, database reachable, backend offline, and GMGN configured.
+- `uv run alembic upgrade head` applied `0009_historical_pipeline`, `0010_paper_trader`, and `0011_worker_kinds`. `uv run alembic current` is `0011_worker_kinds (head)`.
+- The loaded API mode is `PAPER`. Live trading stayed disabled. No wallet was read and no transaction was signed.
+- Two supervisor passes with `--paper-trader` stored decision rows and virtual equity of 10 SOL. The kill switch was released, Shield was not paused, and recovery did not block entries. Pass 1 refused LOOSY at score 62.40 because the score is below 65. Pass 2 refused FIONA at score 73.79 because the lifecycle was not `watch_suggested`. No paper order was submitted. The dashboard page bound those two decision lines, status `running`, kill switch `released`, and two equity points.
+- A free-plan GMGN 429 on `token_top_holders` stopped the remainder of each cycle. The calls that succeeded were still stored. The trader did not add a second radar cycle.
 
 Recorded on 2026-11-18 after the historical pipeline, research pages, and paper strategy runner:
 
@@ -80,9 +93,9 @@ No API key or database URL is printed.
 
 ## Known limitations
 
-- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
+- Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor calls GMGN only when `--include-radar` or `--paper-trader` is set, and that is one cycle per tick. A free-plan 429 stops the rest of that cycle.
 - `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. Replacing it with 2026.6.0 does not resolve. CYVORA does not open a reference filesystem.
-- The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The configured mode is `READ_ONLY`, so the API refuses to store a paper order until the mode is `PAPER`.
+- The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The autonomous paper trader does not copy those fills. It submits only when the loaded mode is `PAPER`. `READ_ONLY` stores a skipped pass and no order.
 - No simulation dataset was stored in the smoke run, so that run did not write a backtest. A dataset can be imported when PostgreSQL and the local API are configured.
 - `/health` without a token returns `{"status": "live"}` only. The detailed body requires the local token.
 - The GitHub repository is public. `.env` is not in its history. Changing visibility is an operator decision.
@@ -120,6 +133,7 @@ No API key or database URL is printed.
 - `.env` is gitignored and has no commit. The example file contains placeholders only. Container and task templates do not contain a database URL or a token.
 - `repr(Settings)` and `model_dump` do not include the database password. `get_settings` does not re-raise the pydantic input value.
 - Simulation rows constrain `live_trading_enabled` to false. Run rows constrain `parameters_deployed` to false.
+- Paper-trader cycle, decision, and equity rows constrain `live_trading_enabled` to false. The worker-kind revision does not add a live mode.
 - Terminal profile, preference, and notification rows constrain live trading to false. Telegram delivery is constrained to false.
 - Readiness rows constrain live trading to false and authorization to `not_authorized`.
 - Analyst findings set `authorizes_order` false. No external model is called.

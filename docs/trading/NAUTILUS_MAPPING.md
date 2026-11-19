@@ -71,3 +71,5 @@ Reconciliation compares the stored order with a supplied report. A missing or co
 The strategy manager registers a slot, starts it only in paper mode, and routes an explicit intent. Shield evaluates that intent. A stored decision is `paper_approved` or `denied`. A request that claims approval by itself is refused. `paper_approved` allows the local simulator only. The API process sets `RUNNING` strategies back to `STOPPED` when it starts. The desktop shows the stored rows and does not start a strategy.
 
 No signal strategy is registered by the Nautilus proof. Shield's rules are in `docs/trading/SHIELD.md`. The CYVORA backtest and cost models are in `docs/trading/SIMULATION.md`. They do not call this engine.
+
+The autonomous paper trader does not import Nautilus fills into the operator book. A Nautilus `CurrencyPair` fill has no Solana pool reserves, and the engine's `FILLED` state is not a CYVORA order. Radar entries go through `PaperBroker` and `PaperExecutionGateway` instead. That path is described in `docs/trading/PAPER_TRADER.md`.

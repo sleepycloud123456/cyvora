@@ -161,6 +161,15 @@ def snapshot_payload(snapshot: TerminalSnapshot) -> dict[str, object]:
         "api_host": snapshot.settings.api_host,
         "api_port": snapshot.settings.api_port,
         "halt_entries": snapshot.settings.halt_entries,
+        "paper_trader": {
+            "status": snapshot.paper_trader.status,
+            "kill_switch": snapshot.paper_trader.kill_switch,
+            "halt_entries": snapshot.paper_trader.halt_entries,
+            "entries_blocked": snapshot.paper_trader.entries_blocked,
+            "decisions": list(snapshot.paper_trader.decisions),
+            "equity_points": [str(point) for point in snapshot.paper_trader.equity_points],
+            "live_trading_enabled": False,
+        },
         "breach_latched": snapshot.settings.breach_latched,
         "active_profile_id": snapshot.active_profile_id,
         "profiles": [

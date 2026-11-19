@@ -110,6 +110,34 @@ def test_historical_pipeline_revision_keeps_live_trading_off() -> None:
     assert "live_trading_enabled IS false" in source
 
 
+def test_paper_trader_revision_keeps_live_trading_off() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261119_0010_paper_trader.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0010_paper_trader"' in source
+    assert 'down_revision: str | None = "0009_historical_pipeline"' in source
+    assert "paper_trader_cycles" in source
+    assert "paper_trader_decisions" in source
+    assert "paper_trader_equity" in source
+    assert "ck_paper_trader_cycles_live" in source
+    assert "ck_paper_trader_decisions_live" in source
+    assert "ck_paper_trader_equity_live" in source
+    assert "live_trading_enabled IS false" in source
+
+
+def test_worker_kinds_revision_names_the_paper_workers() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261119_0011_worker_kinds.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0011_worker_kinds"' in source
+    assert 'down_revision: str | None = "0010_paper_trader"' in source
+    assert "paper_strategy" in source
+    assert "paper_trader" in source
+    assert "LIVE" not in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -120,5 +148,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0009_historical_pipeline" in result.stdout
+    assert "0011_worker_kinds" in result.stdout
     assert "postgresql" not in result.stdout.lower()

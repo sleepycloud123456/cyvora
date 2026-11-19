@@ -9,6 +9,11 @@ from database.models.operations import (
     OperationRecovery,
     OperationWorker,
 )
+from database.models.paper_trader import (
+    PaperTraderCycle,
+    PaperTraderDecision,
+    PaperTraderEquity,
+)
 from database.models.radar import (
     AuditEvent,
     IndicatorSignal,
@@ -65,6 +70,9 @@ __all__ = [
     "OperationRecovery",
     "OperationWorker",
     "PaperStrategyAuditRow",
+    "PaperTraderCycle",
+    "PaperTraderDecision",
+    "PaperTraderEquity",
     "LiquiditySnapshot",
     "RadarCycle",
     "ReadinessControl",
