@@ -39,6 +39,22 @@ _PRICE_DECIMALS = 9
 _QUOTE_DECIMALS = 9
 _ENTRY_LIFECYCLES = frozenset({"watch_suggested", "ranked"})
 _CLEAR = "APPROVED_FOR_FURTHER_ANALYSIS"
+_RISKY = frozenset({"CAUTION", "HIGH_RISK", "UNKNOWN"})
+
+
+def _security_ok(category: str | None) -> bool:
+    """Paper only: optionally treat CAUTION/HIGH_RISK/UNKNOWN as tradeable. REJECTED never is."""
+    if category == _CLEAR:
+        return True
+    return category in _RISKY and _allow_risky()
+
+
+def _allow_risky() -> bool:
+    from config.settings import get_settings
+
+    return get_settings().paper_allow_risky_security
+
+
 _ORDER_BLOCKS = frozenset({"kill_switch", "kill_switch_unreadable", "entries_blocked"})
 
 
@@ -359,7 +375,7 @@ def _filter_reason(candidate: RadarCandidate, min_score: Decimal) -> str | None:
         return "below_score"
     if candidate.lifecycle not in _ENTRY_LIFECYCLES:
         return "lifecycle"
-    if candidate.security_category != _CLEAR:
+    if not _security_ok(candidate.security_category):
         return "security_not_clear"
     if candidate.freshness != "fresh":
         return "stale_candles"
@@ -440,7 +456,7 @@ def _bar(
     security = None
     if candidate is not None:
         age = _age(candidate.creation_timestamp, now)
-        security = "clear" if candidate.security_category == _CLEAR else None
+        security = "clear" if _security_ok(candidate.security_category) else None
     return HistoricalBar(
         mint=mint,
         symbol=symbol,

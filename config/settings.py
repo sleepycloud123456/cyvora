@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     paper_min_score: Decimal = Field(default=Decimal(65), ge=0, le=100)
     paper_max_entries_per_cycle: int = Field(default=1, ge=1, le=3)
     paper_stop_fraction: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
+    paper_allow_risky_security: bool = False
     paper_quote_limit: int = Field(default=3, ge=0, le=5)
     paper_quote_max_age_seconds: int = Field(default=120, ge=30, le=600)
 

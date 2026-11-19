@@ -328,3 +328,24 @@ def _quote(
     observed: datetime = NOW,
 ) -> PoolQuote:
     return PoolQuote(mint, quote / base, base, quote, observed)
+
+
+@pytest.fixture(autouse=True)
+def _risky_security_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the strict security filter regardless of the local .env."""
+
+    from trading.paper_trader import loop
+
+    monkeypatch.setattr(loop, "_allow_risky", lambda: False)
+
+
+def test_risky_security_flag_allows_caution_but_never_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trading.paper_trader import loop
+
+    monkeypatch.setattr(loop, "_allow_risky", lambda: True)
+    assert loop._security_ok("CAUTION")
+    assert loop._security_ok("HIGH_RISK")
+    assert loop._security_ok("UNKNOWN")
+    assert not loop._security_ok("REJECTED")
