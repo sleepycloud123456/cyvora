@@ -36,7 +36,10 @@ from trading.paper_trader.candidates import candidate_from_analysis
 
 logger = logging.getLogger("cyvora.paper_trader")
 
-_ACTIONS = frozenset({"submitted", "refused", "blocked", "held", "duplicate", "skipped"})
+_ACTIONS = frozenset(
+    {"submitted", "refused", "blocked", "held", "duplicate", "skipped", "exited"}
+)
+_UNPRICED_REASONS = frozenset({"mark_missing", "mark_stale", "pool_reserves_missing"})
 _STATUSES = frozenset({"running", "paused", "blocked", "skipped", "failed"})
 _KILL = frozenset({"released", "engaged", "unreadable", "not_configured", "not_checked"})
 
@@ -91,6 +94,45 @@ class PostgresPaperTraderRepository:
             raise DatabaseUnavailableError("The paper trader log could not be stored.") from None
         finally:
             engine.dispose()
+
+    def last_priced_at(self, mints: tuple[str, ...]) -> dict[str, datetime]:
+        """Latest time each mint had a usable mark, inferred from stored history."""
+
+        if not mints:
+            return {}
+        engine = create_database_engine(self._settings)
+        found: dict[str, datetime] = {}
+        try:
+            with Session(engine) as session:
+                rows = session.scalars(
+                    select(PaperTraderDecision)
+                    .where(PaperTraderDecision.mint.in_(mints))
+                    .where(PaperTraderDecision.reason.not_in(_UNPRICED_REASONS))
+                    .order_by(PaperTraderDecision.created_at.desc())
+                ).all()
+                for row in rows:
+                    if row.mint in found:
+                        continue
+                    found[row.mint] = _aware_time(row.created_at)
+                equity = session.scalar(
+                    select(PaperTraderEquity)
+                    .where(PaperTraderEquity.equity_quote.is_not(None))
+                    .order_by(PaperTraderEquity.observed_at.desc())
+                    .limit(1)
+                )
+                if equity is not None:
+                    observed = _aware_time(equity.observed_at)
+                    for mint in mints:
+                        if mint not in found:
+                            found[mint] = observed
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError):
+            raise
+        except Exception as exc:
+            logger.warning("paper trader last priced read failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Stored paper marks could not be read.") from None
+        finally:
+            engine.dispose()
+        return found
 
     def latest_candidates(self) -> tuple[int | None, datetime | None, tuple[RadarCandidate, ...]]:
         engine = create_database_engine(self._settings)
@@ -212,3 +254,9 @@ def _decision_row(cycle_id: int, decision: TraderDecision, now: datetime) -> Pap
         created_at=now,
         live_trading_enabled=False,
     )
+
+
+def _aware_time(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value

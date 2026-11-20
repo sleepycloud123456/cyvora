@@ -63,7 +63,10 @@ class PaperTraderDecision(Base):
     __table_args__ = (
         CheckConstraint("live_trading_enabled IS false", name="ck_paper_trader_decisions_live"),
         CheckConstraint(
-            "action IN ('submitted', 'refused', 'blocked', 'held', 'duplicate', 'skipped')",
+            "action IN ("
+            "'submitted', 'refused', 'blocked', 'held', "
+            "'duplicate', 'skipped', 'exited'"
+            ")",
             name="ck_paper_trader_decisions_action",
         ),
     )

@@ -138,6 +138,18 @@ def test_worker_kinds_revision_names_the_paper_workers() -> None:
     assert "LIVE" not in source
 
 
+def test_paper_trader_exited_revision_allows_writeoff_action() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root / "database" / "migrations" / "versions" / "20261120_0012_paper_trader_exited.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision: str = "0012_paper_trader_exited"' in source
+    assert 'down_revision: str | None = "0011_worker_kinds"' in source
+    assert "exited" in source
+    assert "ck_paper_trader_decisions_action" in source
+    assert "LIVE" not in source
+
+
 def test_alembic_heads_lists_the_trading_revision() -> None:
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
@@ -148,5 +160,5 @@ def test_alembic_heads_lists_the_trading_revision() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
-    assert "0011_worker_kinds" in result.stdout
+    assert "0012_paper_trader_exited" in result.stdout
     assert "postgresql" not in result.stdout.lower()

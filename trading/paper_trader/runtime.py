@@ -94,6 +94,9 @@ def run_stored(
         )
         quotes.update(refreshed)
         logger.info("paper pool quotes requested=%s stored=%s", len(extra), len(refreshed))
+    repo = PostgresPaperTraderRepository(settings)
+    open_mints = tuple(item.mint for item in store.list_positions() if item.quantity > 0)
+    last_priced = repo.last_priced_at(open_mints) if open_mints else {}
     tick = run_once(
         mode=settings.execution_mode,
         store=store,
@@ -112,6 +115,8 @@ def run_stored(
         entries_blocked=blocked,
         halt_entries=shield.halt_entries,
         kill_switch=kill,
+        unpriced_writeoff_seconds=settings.paper_unpriced_writeoff_seconds,
+        last_priced_at=last_priced,
     )
     _record(settings, tick, moment)
     return tick

@@ -20,7 +20,7 @@ from domain.paper_trader import (
     StoredTraderDecision,
 )
 from domain.shield import PAPER_APPROVED
-from domain.trading import OrderSide, StrategyState
+from domain.trading import OrderSide, OrderState, StrategyState
 from operations.assembly import default_workers
 from terminal.paper_trader import build_paper_trader_view
 from trading.memory_store import MemoryTradingStore
@@ -272,6 +272,8 @@ def _kwargs(
     kill_switch: str = "released",
     max_exposure_fraction: Decimal = Decimal("0.40"),
     max_entries: int = 1,
+    unpriced_writeoff_seconds: int = 1800,
+    last_priced_at: dict[str, datetime] | None = None,
 ) -> dict[str, object]:
     return {
         "mode": mode,
@@ -291,6 +293,8 @@ def _kwargs(
         "entries_blocked": entries_blocked,
         "halt_entries": halt_entries,
         "kill_switch": kill_switch,
+        "unpriced_writeoff_seconds": unpriced_writeoff_seconds,
+        "last_priced_at": last_priced_at,
     }
 
 
@@ -349,3 +353,105 @@ def test_risky_security_flag_allows_caution_but_never_rejected(
     assert loop._security_ok("HIGH_RISK")
     assert loop._security_ok("UNKNOWN")
     assert not loop._security_ok("REJECTED")
+
+
+def test_unpriced_position_is_written_off_after_the_grace_period() -> None:
+    store = MemoryTradingStore()
+    opened = run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    assert opened.submitted_count == 1
+    position = next(item for item in store.list_positions() if item.quantity > 0)
+    remaining = position.quantity
+    average = position.average_price
+    assert average is not None
+    later = NOW + timedelta(seconds=1800)
+    closed = run_once(**_kwargs(store, (), {}, now=later))
+    assert any(
+        item.action == "exited" and item.reason == "unpriced_writeoff" for item in closed.decisions
+    )
+    sells = [order for order in store.list_orders() if order.side is OrderSide.SELL]
+    assert len(sells) == 1
+    assert sells[0].simulated is True
+    assert sells[0].state is OrderState.CONFIRMED
+    assert sells[0].fill_price == Decimal(0)
+    assert sells[0].shield_decision == PAPER_APPROVED
+    assert all(item.quantity == 0 for item in store.list_positions())
+    assert closed.open_positions == 0
+    assert closed.equity_quote is not None
+    flat = store.list_positions()[0]
+    assert flat.realized_pnl_quote == (Decimal(0) - average) * remaining
+    assert closed.equity_quote == Decimal(10) + flat.realized_pnl_quote
+    assert closed.realized_quote == flat.realized_pnl_quote
+
+
+def test_unpriced_position_is_held_before_the_writeoff_grace() -> None:
+    store = MemoryTradingStore()
+    run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    later = NOW + timedelta(seconds=1799)
+    held = run_once(**_kwargs(store, (), {}, now=later))
+    assert any(item.reason == "mark_missing" and item.action == "held" for item in held.decisions)
+    assert not any(item.reason == "unpriced_writeoff" for item in held.decisions)
+    assert all(order.side is OrderSide.BUY for order in store.list_orders())
+    assert held.equity_quote is None
+    assert any(item.quantity > 0 for item in store.list_positions())
+
+
+def test_writeoff_does_not_run_in_read_only_mode() -> None:
+    store = MemoryTradingStore()
+    run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    later = NOW + timedelta(hours=1)
+    skipped = run_once(**_kwargs(store, (), {}, now=later, mode=ExecutionMode.READ_ONLY))
+    assert skipped.status == "skipped"
+    assert skipped.decisions == ()
+    assert all(order.side is OrderSide.BUY for order in store.list_orders())
+    assert any(item.quantity > 0 for item in store.list_positions())
+
+
+def test_priced_position_is_not_written_off() -> None:
+    store = MemoryTradingStore()
+    run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    later = NOW + timedelta(seconds=1800)
+    result = run_once(**_kwargs(store, (), _quotes(later), now=later))
+    assert not any(item.reason == "unpriced_writeoff" for item in result.decisions)
+    assert any(item.quantity > 0 for item in store.list_positions())
+    assert result.equity_quote is not None
+
+
+def test_writeoff_uses_last_priced_history_not_only_the_last_fill() -> None:
+    store = MemoryTradingStore()
+    run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    later = NOW + timedelta(seconds=1800)
+    result = run_once(
+        **_kwargs(
+            store,
+            (),
+            {},
+            now=later,
+            last_priced_at={USDC: later - timedelta(seconds=100)},
+        )
+    )
+    assert any(item.reason == "mark_missing" for item in result.decisions)
+    assert not any(item.reason == "unpriced_writeoff" for item in result.decisions)
+    assert any(item.quantity > 0 for item in store.list_positions())
+
+
+def test_writeoff_clears_exposure_so_a_new_entry_can_be_sized() -> None:
+    store = MemoryTradingStore()
+    run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    later = NOW + timedelta(seconds=1800)
+    quotes = {WSOL: _quote(WSOL, observed=later)}
+    result = run_once(
+        **_kwargs(store, (_candidate(mint=WSOL, symbol="WSOL"),), quotes, now=later)
+    )
+    assert any(item.reason == "unpriced_writeoff" for item in result.decisions)
+    assert not any(item.reason == "exposure_unpriced" for item in result.decisions)
+    assert result.equity_quote is not None
+    buys = [order for order in store.list_orders() if order.side is OrderSide.BUY]
+    assert len(buys) == 2
+
+
+def test_paper_unpriced_writeoff_seconds_default(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, log_dir=tmp_path)
+    assert settings.paper_unpriced_writeoff_seconds == 1800
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, log_dir=tmp_path, paper_unpriced_writeoff_seconds=59)
+

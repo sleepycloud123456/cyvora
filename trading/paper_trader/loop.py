@@ -8,8 +8,9 @@ close is not a fill: a pool without reserves is refused.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from backtesting.broker import BrokerCommand, BrokerResult, PaperBroker
@@ -87,6 +88,8 @@ def run_once(
     entries_blocked: bool,
     halt_entries: bool,
     kill_switch: str,
+    unpriced_writeoff_seconds: int = 1800,
+    last_priced_at: Mapping[str, datetime] | None = None,
 ) -> TraderTick:
     """Evaluate candidates and due exits. Read-only mode stores no order."""
 
@@ -123,6 +126,19 @@ def run_once(
             entries_blocked=lambda: gate in _ORDER_BLOCKS,
         )
         decisions: list[TraderDecision] = []
+        priced_times = dict(last_priced_at or {})
+        decisions.extend(
+            _writeoffs(
+                broker,
+                store,
+                quotes,
+                now,
+                max_quote_age_seconds,
+                unpriced_writeoff_seconds,
+                priced_times,
+                gate,
+            )
+        )
         decisions.extend(
             _exits(
                 broker,
@@ -272,6 +288,174 @@ def _entry(
     except TradingValidationError as exc:
         return _decision(mint, symbol, "refused", _short(str(exc)), score, None), False
     return _from_result(mint, symbol, score, result, taken=True)
+
+
+def _writeoffs(
+    broker: PaperBroker,
+    store: TradingStore,
+    quotes: dict[str, PoolQuote],
+    now: datetime,
+    max_quote_age_seconds: int,
+    unpriced_writeoff_seconds: int,
+    last_priced_at: Mapping[str, datetime],
+    gate: str | None,
+) -> list[TraderDecision]:
+    decisions: list[TraderDecision] = []
+    if unpriced_writeoff_seconds <= 0:
+        return decisions
+    for position in store.list_positions():
+        if position.quantity <= 0:
+            continue
+        campaign = _campaign(store.load_shield().campaigns, position.mint)
+        if campaign is None or campaign.strategy_id != STRATEGY_ID:
+            continue
+        if not _writeoff_due(
+            position,
+            store,
+            quotes,
+            now,
+            max_quote_age_seconds,
+            unpriced_writeoff_seconds,
+            last_priced_at,
+        ):
+            continue
+        symbol = _symbol_for(store, position.mint)
+        if gate in _ORDER_BLOCKS:
+            decisions.append(
+                _decision(position.mint, symbol, "blocked", gate or "entries_blocked", None, None)
+            )
+            continue
+        key = _writeoff_key(position.mint, position.updated_at)
+        existing = _existing(store, key)
+        if existing is not None:
+            if existing.filled_quantity > 0 and existing.fill_price == Decimal(0):
+                decisions.append(
+                    _decision(
+                        position.mint,
+                        symbol,
+                        "exited",
+                        "unpriced_writeoff",
+                        None,
+                        existing.client_order_id,
+                    )
+                )
+            else:
+                decisions.append(
+                    _decision(
+                        position.mint,
+                        symbol,
+                        "refused",
+                        _short(existing.reason or "unpriced_writeoff"),
+                        None,
+                        existing.client_order_id,
+                    )
+                )
+            continue
+        try:
+            result = broker.write_off(
+                _instrument(position.mint, symbol),
+                position.quantity,
+                strategy_id=STRATEGY_ID,
+                idempotency_key=key,
+            )
+        except TradingDisabled:
+            decisions.append(
+                _decision(position.mint, symbol, "blocked", gate or "entries_blocked", None, None)
+            )
+            continue
+        except TradingValidationError as exc:
+            decisions.append(
+                _decision(position.mint, symbol, "refused", _short(str(exc)), None, None)
+            )
+            continue
+        order = result.order
+        if (
+            order is None
+            or order.shield_decision != PAPER_APPROVED
+            or order.filled_quantity <= 0
+        ):
+            reason = result.refusal
+            if reason is None and order is not None:
+                reason = order.reason
+            decisions.append(
+                _decision(
+                    position.mint,
+                    symbol,
+                    "refused",
+                    _short(reason or "unpriced_writeoff"),
+                    None,
+                    None if order is None else order.client_order_id,
+                )
+            )
+            continue
+        decisions.append(
+            _decision(
+                position.mint,
+                symbol,
+                "exited",
+                "unpriced_writeoff",
+                None,
+                order.client_order_id,
+            )
+        )
+    return decisions
+
+
+def _writeoff_due(
+    position: object,
+    store: TradingStore,
+    quotes: dict[str, PoolQuote],
+    now: datetime,
+    max_quote_age_seconds: int,
+    unpriced_writeoff_seconds: int,
+    last_priced_at: Mapping[str, datetime],
+) -> bool:
+    mark = _fresh_mark(quotes.get(position.mint), now, max_quote_age_seconds)
+    if mark is not None:
+        return False
+    priced = _last_priced(position, store, last_priced_at)
+    if priced is None or now.tzinfo is None or priced.tzinfo is None:
+        return False
+    return (now - priced).total_seconds() >= unpriced_writeoff_seconds
+
+
+def _last_priced(
+    position: object,
+    store: TradingStore,
+    last_priced_at: Mapping[str, datetime],
+) -> datetime | None:
+    found: list[datetime] = []
+    recorded = last_priced_at.get(position.mint)
+    if recorded is not None:
+        aware = _aware(recorded)
+        if aware is not None:
+            found.append(aware)
+    updated = _aware(position.updated_at)
+    if updated is not None:
+        found.append(updated)
+    for order in store.list_orders():
+        if (
+            order.mint == position.mint
+            and order.filled_quantity > 0
+            and order.fill_price is not None
+        ):
+            stamp = _aware(order.updated_at)
+            if stamp is not None:
+                found.append(stamp)
+    if not found:
+        return None
+    return max(found)
+
+
+def _aware(value: datetime) -> datetime | None:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
+def _writeoff_key(mint: str, updated_at: datetime) -> str:
+    digest = hashlib.sha256(mint.encode("utf-8")).hexdigest()[:12]
+    return f"pt.{digest}.unpriced-wo.{int(updated_at.timestamp())}"
 
 
 def _exits(
