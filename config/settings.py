@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     paper_stop_fraction: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
     paper_allow_risky_security: bool = False
     paper_unpriced_writeoff_seconds: int = Field(default=1800, ge=60, le=86400)
+    paper_require_price_feed: bool = True
     paper_quote_limit: int = Field(default=3, ge=0, le=5)
     paper_quote_max_age_seconds: int = Field(default=120, ge=30, le=600)
 

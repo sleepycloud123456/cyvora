@@ -11,6 +11,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from config.settings import Settings
 from domain.enums import ExecutionMode
@@ -19,7 +20,12 @@ from domain.paper_trader import STRATEGY_ID, PoolQuote, RadarCandidate, TraderTi
 from domain.shield import CampaignRecord
 from readiness.guard import kill_switch_component, operator_orders_blocked
 from trading.paper_trader.loop import run_once
-from trading.paper_trader.quotes import refresh_pools
+from trading.paper_trader.quotes import (
+    collect_marks,
+    quote_usable,
+    refresh_pools,
+    stored_mark_max_age_seconds,
+)
 from trading.store import TradingStore
 
 logger = logging.getLogger("cyvora.paper_trader")
@@ -78,24 +84,58 @@ def run_stored(
     )
     kill = _kill_word(settings)
     shield = store.load_shield()
-    cycle_id, finished, candidates = PostgresPaperTraderRepository(settings).latest_candidates()
+    repo = PostgresPaperTraderRepository(settings)
+    cycle_id, finished, candidates = repo.latest_candidates()
     quotes = _quotes(candidates, finished)
     fresh = _cycle_fresh(finished, moment, settings.paper_quote_max_age_seconds)
+    open_mints = tuple(item.mint for item in store.list_positions() if item.quantity > 0)
+    candidate_mints = tuple(item.mint for item in candidates)
+    wanted = tuple(dict.fromkeys((*open_mints, *candidate_mints)))
+    stored_rows = repo.latest_pool_quotes(wanted) if wanted else {}
+    stored = {mint: item[0] for mint, item in stored_rows.items()}
+    prior_stored = {
+        mint: item[0]
+        for mint, item in stored_rows.items()
+        if cycle_id is None or item[1] != cycle_id
+    }
+    mark_age = stored_mark_max_age_seconds(
+        settings.paper_quote_max_age_seconds,
+        settings.paper_unpriced_writeoff_seconds,
+    )
     extra = _mints_to_refresh(
         store,
         quotes,
         moment,
         settings.paper_quote_max_age_seconds,
         settings.paper_quote_limit,
+        candidates=candidates if settings.paper_require_price_feed else (),
     )
+    refreshed: dict[str, PoolQuote] = {}
     if extra:
         refreshed = asyncio.run(
             refresh_pools(settings, extra, limit=settings.paper_quote_limit, now=moment)
         )
-        quotes.update(refreshed)
         logger.info("paper pool quotes requested=%s stored=%s", len(extra), len(refreshed))
-    repo = PostgresPaperTraderRepository(settings)
-    open_mints = tuple(item.mint for item in store.list_positions() if item.quantity > 0)
+    quotes.update(
+        collect_marks(
+            wanted,
+            now=moment,
+            max_age_seconds=settings.paper_quote_max_age_seconds,
+            seeded=quotes,
+            refreshed=refreshed,
+            stored=stored,
+            stored_max_age_seconds=mark_age,
+        )
+    )
+    feed_marks = collect_marks(
+        candidate_mints,
+        now=moment,
+        max_age_seconds=settings.paper_quote_max_age_seconds,
+        seeded={},
+        refreshed=refreshed,
+        stored=prior_stored,
+        stored_max_age_seconds=mark_age,
+    )
     last_priced = repo.last_priced_at(open_mints) if open_mints else {}
     tick = run_once(
         mode=settings.execution_mode,
@@ -117,6 +157,9 @@ def run_stored(
         kill_switch=kill,
         unpriced_writeoff_seconds=settings.paper_unpriced_writeoff_seconds,
         last_priced_at=last_priced,
+        require_price_feed=settings.paper_require_price_feed,
+        feed_marks=feed_marks,
+        max_mark_age_seconds=mark_age,
     )
     _record(settings, tick, moment)
     return tick
@@ -163,6 +206,7 @@ def _mints_to_refresh(
     now: datetime,
     max_age: int,
     limit: int,
+    candidates: tuple[RadarCandidate, ...] = (),
 ) -> tuple[str, ...]:
     if limit < 1:
         return ()
@@ -175,19 +219,19 @@ def _mints_to_refresh(
         if campaign is None or campaign.strategy_id != STRATEGY_ID:
             continue
         quote = quotes.get(position.mint)
-        if quote is None or not _usable(quote, now, max_age):
+        if quote is None or not quote_usable(quote, now, max_age):
             needed.append(position.mint)
+        if len(needed) >= limit:
+            return tuple(needed)
+    for candidate in sorted(
+        candidates, key=lambda item: (-(item.score or Decimal(-1)), item.mint)
+    ):
+        if candidate.mint in needed:
+            continue
+        needed.append(candidate.mint)
         if len(needed) >= limit:
             break
     return tuple(needed)
-
-
-def _usable(quote: PoolQuote, now: datetime, max_age: int) -> bool:
-    if quote.base_reserve is None or quote.quote_reserve is None:
-        return False
-    if quote.base_reserve <= 0 or quote.quote_reserve <= 0 or quote.observed_at.tzinfo is None:
-        return False
-    return (now - quote.observed_at).total_seconds() <= max_age
 
 
 def _campaign(campaigns: tuple[CampaignRecord, ...], mint: str) -> CampaignRecord | None:

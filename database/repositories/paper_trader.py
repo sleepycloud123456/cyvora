@@ -25,6 +25,7 @@ from domain.exceptions import (
 )
 from domain.paper_trader import (
     PaperTraderView,
+    PoolQuote,
     RadarCandidate,
     StoredTraderCycle,
     StoredTraderDecision,
@@ -94,6 +95,62 @@ class PostgresPaperTraderRepository:
             raise DatabaseUnavailableError("The paper trader log could not be stored.") from None
         finally:
             engine.dispose()
+
+    def latest_pool_quotes(
+        self, mints: tuple[str, ...]
+    ) -> dict[str, tuple[PoolQuote, int]]:
+        """Latest stored radar pool snapshot for each mint, with its cycle id."""
+
+        if not mints:
+            return {}
+        engine = create_database_engine(self._settings)
+        found: dict[str, tuple[PoolQuote, int]] = {}
+        try:
+            with Session(engine) as session:
+                rows = session.execute(
+                    select(Token, TokenAnalysis, RadarCycle)
+                    .join(TokenAnalysis, Token.id == TokenAnalysis.token_id)
+                    .join(RadarCycle, RadarCycle.id == TokenAnalysis.cycle_id)
+                    .where(Token.address.in_(mints))
+                    .order_by(
+                        Token.address,
+                        RadarCycle.finished_at.desc(),
+                        TokenAnalysis.id.desc(),
+                    )
+                ).all()
+                for token, analysis, cycle in rows:
+                    if token.address in found:
+                        continue
+                    candidate = candidate_from_analysis(
+                        token.address,
+                        token.symbol,
+                        analysis.total_score,
+                        analysis.lifecycle,
+                        analysis.freshness,
+                        analysis.security_category,
+                        analysis.breakdown,
+                    )
+                    finished = cycle.finished_at
+                    if finished.tzinfo is None:
+                        finished = finished.replace(tzinfo=UTC)
+                    found[token.address] = (
+                        PoolQuote(
+                            token.address,
+                            candidate.price,
+                            candidate.base_reserve,
+                            candidate.quote_reserve,
+                            finished,
+                        ),
+                        cycle.id,
+                    )
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError):
+            raise
+        except Exception as exc:
+            logger.warning("paper trader stored quotes failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("Stored radar pool quotes could not be read.") from None
+        finally:
+            engine.dispose()
+        return found
 
     def last_priced_at(self, mints: tuple[str, ...]) -> dict[str, datetime]:
         """Latest time each mint had a usable mark, inferred from stored history."""

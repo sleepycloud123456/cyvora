@@ -90,6 +90,9 @@ def run_once(
     kill_switch: str,
     unpriced_writeoff_seconds: int = 1800,
     last_priced_at: Mapping[str, datetime] | None = None,
+    require_price_feed: bool = True,
+    feed_marks: Mapping[str, PoolQuote] | None = None,
+    max_mark_age_seconds: int | None = None,
 ) -> TraderTick:
     """Evaluate candidates and due exits. Read-only mode stores no order."""
 
@@ -111,6 +114,7 @@ def run_once(
         )
     gate = _gate_reason(kill_switch, entries_blocked, halt_entries)
     status = _status(gate)
+    mark_age = max_quote_age_seconds if max_mark_age_seconds is None else max_mark_age_seconds
     opened = False
     try:
         _open_strategy(store, now)
@@ -133,7 +137,7 @@ def run_once(
                 store,
                 quotes,
                 now,
-                max_quote_age_seconds,
+                mark_age,
                 unpriced_writeoff_seconds,
                 priced_times,
                 gate,
@@ -146,7 +150,7 @@ def run_once(
                 quotes,
                 now,
                 bankroll,
-                max_quote_age_seconds,
+                mark_age,
                 gate,
             )
         )
@@ -168,8 +172,11 @@ def run_once(
                 max_entries,
                 submitted_entries,
                 max_quote_age_seconds,
+                mark_age,
                 now,
                 gate,
+                require_price_feed,
+                feed_marks,
             )
             decisions.append(decision)
             if took:
@@ -182,7 +189,7 @@ def run_once(
             entries_blocked,
             len(candidates),
             tuple(decisions),
-            _book(store, quotes, bankroll, now, max_quote_age_seconds),
+            _book(store, quotes, bankroll, now, mark_age),
             detail,
             now,
             store,
@@ -210,8 +217,11 @@ def _entry(
     max_entries: int,
     submitted_entries: int,
     max_quote_age_seconds: int,
+    max_mark_age_seconds: int,
     now: datetime,
     gate: str | None,
+    require_price_feed: bool,
+    feed_marks: Mapping[str, PoolQuote] | None,
 ) -> tuple[TraderDecision, bool]:
     symbol = _safe_symbol(candidate.symbol)
     score = _score_text(candidate.score)
@@ -233,7 +243,7 @@ def _entry(
         return _decision(mint, symbol, "blocked", gate, score, None), False
     if submitted_entries >= max_entries:
         return _decision(mint, symbol, "skipped", "entry_limit", score, None), False
-    book = _book(store, quotes, bankroll, now, max_quote_age_seconds)
+    book = _book(store, quotes, bankroll, now, max_mark_age_seconds)
     if book is None:
         return _decision(mint, symbol, "refused", "exposure_unpriced", score, None), False
     if book.cash < 0:
@@ -242,6 +252,13 @@ def _entry(
     spot = _spot(quote)
     if quote is None or spot is None or not _fresh(quote, now, max_quote_age_seconds):
         return _decision(mint, symbol, "refused", "pool_reserves_missing", score, None), False
+    if require_price_feed and not _price_feed_ok(
+        None if feed_marks is None else feed_marks.get(mint),
+        spot,
+        now,
+        max_mark_age_seconds,
+    ):
+        return _decision(mint, symbol, "refused", "no_price_feed", score, None), False
     room = bankroll * max_exposure_fraction - book.marked
     if room <= 0:
         return _decision(mint, symbol, "refused", "exposure_cap", score, None), False
@@ -780,6 +797,20 @@ def _instrument(mint: str, symbol: str) -> SolanaInstrument:
         "SOL",
         _QUOTE_DECIMALS,
     )
+
+
+def _price_feed_ok(
+    mark: PoolQuote | None,
+    entry_spot: Decimal,
+    now: datetime,
+    max_age: int,
+) -> bool:
+    if entry_spot <= 0:
+        return False
+    mark_spot = _fresh_mark(mark, now, max_age)
+    if mark_spot is None or mark_spot <= 0:
+        return False
+    return abs(mark_spot - entry_spot) / entry_spot <= Decimal("0.5")
 
 
 def _fresh(quote: PoolQuote, now: datetime, max_age: int) -> bool:

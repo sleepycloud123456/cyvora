@@ -26,6 +26,7 @@ from terminal.paper_trader import build_paper_trader_view
 from trading.memory_store import MemoryTradingStore
 from trading.paper_trader.candidates import candidate_from_analysis
 from trading.paper_trader.loop import run_once
+from trading.paper_trader.quotes import collect_marks, stored_mark_max_age_seconds
 from trading.paper_trader.runtime import run_stored
 
 USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -274,6 +275,9 @@ def _kwargs(
     max_entries: int = 1,
     unpriced_writeoff_seconds: int = 1800,
     last_priced_at: dict[str, datetime] | None = None,
+    require_price_feed: bool = False,
+    feed_marks: dict[str, PoolQuote] | None = None,
+    max_mark_age_seconds: int | None = None,
 ) -> dict[str, object]:
     return {
         "mode": mode,
@@ -295,6 +299,9 @@ def _kwargs(
         "kill_switch": kill_switch,
         "unpriced_writeoff_seconds": unpriced_writeoff_seconds,
         "last_priced_at": last_priced_at,
+        "require_price_feed": require_price_feed,
+        "feed_marks": feed_marks,
+        "max_mark_age_seconds": max_mark_age_seconds,
     }
 
 
@@ -454,4 +461,117 @@ def test_paper_unpriced_writeoff_seconds_default(tmp_path: Path) -> None:
     assert settings.paper_unpriced_writeoff_seconds == 1800
     with pytest.raises(ValidationError):
         Settings(_env_file=None, log_dir=tmp_path, paper_unpriced_writeoff_seconds=59)
+
+
+def test_collect_marks_falls_back_to_stored_radar_when_live_refresh_fails() -> None:
+    later = NOW + timedelta(seconds=200)
+    seed = {USDC: _quote(USDC, observed=NOW)}
+    stored = {USDC: _quote(USDC, observed=NOW)}
+    marks = collect_marks(
+        (USDC,),
+        now=later,
+        max_age_seconds=120,
+        seeded=seed,
+        refreshed={},
+        stored=stored,
+        stored_max_age_seconds=600,
+    )
+    assert USDC in marks
+    assert marks[USDC] is stored[USDC]
+    live = {USDC: _quote(USDC, base=Decimal(2_000_000), quote=Decimal(1000), observed=later)}
+    preferred = collect_marks(
+        (USDC,),
+        now=later,
+        max_age_seconds=120,
+        seeded=seed,
+        refreshed=live,
+        stored=stored,
+        stored_max_age_seconds=600,
+    )
+    assert preferred[USDC] is live[USDC]
+    expired = collect_marks(
+        (USDC,),
+        now=NOW + timedelta(seconds=700),
+        max_age_seconds=120,
+        seeded=seed,
+        refreshed={},
+        stored=stored,
+        stored_max_age_seconds=600,
+    )
+    assert expired == {}
+    assert stored_mark_max_age_seconds(120, 1800) == 900
+
+
+def test_stored_radar_fallback_can_mark_an_open_position() -> None:
+    store = MemoryTradingStore()
+    opened = run_once(**_kwargs(store, (_candidate(),), _quotes()))
+    assert opened.submitted_count == 1
+    later = NOW + timedelta(seconds=200)
+    stale = {USDC: _quote(USDC, observed=NOW)}
+    held = run_once(
+        **_kwargs(
+            store,
+            (),
+            stale,
+            now=later,
+            max_mark_age_seconds=600,
+        )
+    )
+    assert any(item.reason == "within_plan" for item in held.decisions)
+    assert held.equity_quote is not None
+    assert not any(item.reason == "mark_missing" for item in held.decisions)
+
+
+def test_price_feed_gate_refuses_when_the_mark_is_missing_or_diverges() -> None:
+    missing = MemoryTradingStore()
+    refused = run_once(
+        **_kwargs(missing, (_candidate(),), _quotes(), require_price_feed=True, feed_marks={})
+    )
+    assert refused.submitted_count == 0
+    assert refused.decisions[-1].reason == "no_price_feed"
+    assert missing.list_orders() == ()
+
+    skewed = MemoryTradingStore()
+    far = {USDC: _quote(USDC, base=Decimal(1_000_000), quote=Decimal(200))}
+    refused_far = run_once(
+        **_kwargs(
+            skewed,
+            (_candidate(),),
+            _quotes(),
+            require_price_feed=True,
+            feed_marks=far,
+        )
+    )
+    assert refused_far.decisions[-1].reason == "no_price_feed"
+    assert skewed.list_orders() == ()
+
+
+def test_price_feed_gate_allows_a_confirming_mark() -> None:
+    store = MemoryTradingStore()
+    close = {USDC: _quote(USDC, base=Decimal(1_000_000), quote=Decimal(1100))}
+    result = run_once(
+        **_kwargs(
+            store,
+            (_candidate(),),
+            _quotes(),
+            require_price_feed=True,
+            feed_marks=close,
+        )
+    )
+    assert result.submitted_count == 1
+    assert result.decisions[-1].action == "submitted"
+    assert store.list_orders()[0].simulated is True
+
+
+def test_price_feed_gate_can_be_disabled() -> None:
+    store = MemoryTradingStore()
+    result = run_once(
+        **_kwargs(store, (_candidate(),), _quotes(), require_price_feed=False, feed_marks={})
+    )
+    assert result.submitted_count == 1
+
+
+def test_paper_require_price_feed_defaults_on(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, log_dir=tmp_path)
+    assert settings.paper_require_price_feed is True
 
