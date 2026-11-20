@@ -23,6 +23,7 @@ from trading.paper_trader.loop import run_once
 from trading.paper_trader.quotes import (
     collect_marks,
     quote_usable,
+    refresh_dexscreener,
     refresh_pools,
     stored_mark_max_age_seconds,
 )
@@ -116,6 +117,16 @@ def run_stored(
             refresh_pools(settings, extra, limit=settings.paper_quote_limit, now=moment)
         )
         logger.info("paper pool quotes requested=%s stored=%s", len(extra), len(refreshed))
+    dex_mints = tuple(
+        mint
+        for mint in wanted
+        if mint not in refreshed
+        or not quote_usable(refreshed[mint], moment, settings.paper_quote_max_age_seconds)
+    )
+    external: dict[str, PoolQuote] = {}
+    if dex_mints:
+        external = asyncio.run(refresh_dexscreener(dex_mints, now=moment))
+        logger.info("dexscreener marks requested=%s stored=%s", len(dex_mints), len(external))
     quotes.update(
         collect_marks(
             wanted,
@@ -125,6 +136,7 @@ def run_stored(
             refreshed=refreshed,
             stored=stored,
             stored_max_age_seconds=mark_age,
+            external=external,
         )
     )
     feed_marks = collect_marks(
@@ -135,6 +147,7 @@ def run_stored(
         refreshed=refreshed,
         stored=prior_stored,
         stored_max_age_seconds=mark_age,
+        external=external,
     )
     last_priced = repo.last_priced_at(open_mints) if open_mints else {}
     tick = run_once(
@@ -160,6 +173,7 @@ def run_stored(
         require_price_feed=settings.paper_require_price_feed,
         feed_marks=feed_marks,
         max_mark_age_seconds=mark_age,
+        min_liquidity_usd=settings.paper_min_liquidity_usd,
     )
     _record(settings, tick, moment)
     return tick

@@ -39,6 +39,7 @@ _SIZE_DECIMALS = 6
 _PRICE_DECIMALS = 9
 _QUOTE_DECIMALS = 9
 _ENTRY_LIFECYCLES = frozenset({"watch_suggested", "ranked"})
+_FRESH_OK = frozenset({"fresh", "live_quote"})
 _CLEAR = "APPROVED_FOR_FURTHER_ANALYSIS"
 _RISKY = frozenset({"CAUTION", "HIGH_RISK", "UNKNOWN"})
 
@@ -93,6 +94,7 @@ def run_once(
     require_price_feed: bool = True,
     feed_marks: Mapping[str, PoolQuote] | None = None,
     max_mark_age_seconds: int | None = None,
+    min_liquidity_usd: Decimal = Decimal(0),
 ) -> TraderTick:
     """Evaluate candidates and due exits. Read-only mode stores no order."""
 
@@ -177,6 +179,7 @@ def run_once(
                 gate,
                 require_price_feed,
                 feed_marks,
+                min_liquidity_usd,
             )
             decisions.append(decision)
             if took:
@@ -222,10 +225,11 @@ def _entry(
     gate: str | None,
     require_price_feed: bool,
     feed_marks: Mapping[str, PoolQuote] | None,
+    min_liquidity_usd: Decimal,
 ) -> tuple[TraderDecision, bool]:
     symbol = _safe_symbol(candidate.symbol)
     score = _score_text(candidate.score)
-    reason = _filter_reason(candidate, min_score)
+    reason = _filter_reason(candidate, min_score, min_liquidity_usd)
     if reason is None and not quotes_fresh:
         reason = "stale_cycle"
     if reason is None and cycle_id is None:
@@ -569,7 +573,9 @@ def _from_result(
     return _decision(mint, symbol, "submitted", reason, score, order.client_order_id), taken
 
 
-def _filter_reason(candidate: RadarCandidate, min_score: Decimal) -> str | None:
+def _filter_reason(
+    candidate: RadarCandidate, min_score: Decimal, min_liquidity: Decimal = Decimal(0)
+) -> str | None:
     if candidate.score is None:
         return "score_missing"
     if candidate.score < min_score:
@@ -578,12 +584,17 @@ def _filter_reason(candidate: RadarCandidate, min_score: Decimal) -> str | None:
         return "lifecycle"
     if not _security_ok(candidate.security_category):
         return "security_not_clear"
-    if candidate.freshness != "fresh":
+    if candidate.freshness not in _FRESH_OK:
         return "stale_candles"
     if candidate.price is None or candidate.price <= 0:
         return "price_missing"
     if not _reserve_pair(candidate.base_reserve, candidate.quote_reserve):
         return "pool_reserves_missing"
+    if min_liquidity > 0:
+        if candidate.liquidity is None:
+            return "liquidity_missing"
+        if candidate.liquidity < min_liquidity:
+            return "below_liquidity"
     return None
 
 

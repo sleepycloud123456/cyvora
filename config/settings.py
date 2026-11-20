@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     radar_kline_resolution: Literal["1m", "5m", "15m", "1h"] = "1m"
     radar_kline_lookback_seconds: int = Field(default=7200, ge=300, le=86400)
     radar_market_retention_days: int = Field(default=90, ge=7, le=3650)
+    radar_dexscreener_limit: int = Field(default=10, ge=0, le=30)
     worker_stale_after_seconds: int = Field(default=900, ge=60, le=86400)
     worker_restart_limit: int = Field(default=2, ge=0, le=10)
     backup_dir: Path = Path("backups")
@@ -85,6 +86,7 @@ class Settings(BaseSettings):
     paper_allow_risky_security: bool = False
     paper_unpriced_writeoff_seconds: int = Field(default=1800, ge=60, le=86400)
     paper_require_price_feed: bool = True
+    paper_min_liquidity_usd: Decimal = Field(default=Decimal(10000), ge=0, le=10_000_000)
     paper_quote_limit: int = Field(default=3, ge=0, le=5)
     paper_quote_max_age_seconds: int = Field(default=120, ge=30, le=600)
 

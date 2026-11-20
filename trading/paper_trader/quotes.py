@@ -2,8 +2,8 @@
 
 The radar cycle already reads pools for the tokens it analyses. This module
 reads a pool only for an open position that cycle did not price, and it stops
-at a small cap. It uses the existing GMGN client and rate limiter. It does
-not call a trade route.
+at a small cap. It uses the existing GMGN client and rate limiter, then
+DexScreener when that live read is missing. It does not call a trade route.
 """
 
 from __future__ import annotations
@@ -13,6 +13,9 @@ from datetime import datetime
 
 from config.settings import Settings
 from domain.paper_trader import PoolQuote
+from integrations.dexscreener.client import DexScreenerClient
+from integrations.dexscreener.errors import DexScreenerError
+from integrations.dexscreener.models import quote_to_pool
 from integrations.gmgn.client import client_from_settings
 from integrations.gmgn.errors import GMGNError, GMGNRateLimitError
 from integrations.gmgn.read_only import GMGNReadOnly
@@ -62,6 +65,32 @@ async def refresh_pools(
     return found
 
 
+async def refresh_dexscreener(
+    mints: tuple[str, ...],
+    *,
+    now: datetime,
+    client: DexScreenerClient | None = None,
+) -> dict[str, PoolQuote]:
+    """Mark mints from DexScreener priceNative on the deepest SOL pair."""
+
+    if not mints:
+        return {}
+    owns = client is None
+    active = client or DexScreenerClient()
+    try:
+        quotes = await active.quotes(mints)
+    except DexScreenerError as exc:
+        logger.warning("dexscreener marks failed error_type=%s", type(exc).__name__)
+        return {}
+    except Exception as exc:
+        logger.warning("dexscreener marks failed error_type=%s", type(exc).__name__)
+        return {}
+    finally:
+        if owns:
+            await active.aclose()
+    return {mint: quote_to_pool(quote, now) for mint, quote in quotes.items()}
+
+
 def quote_usable(quote: PoolQuote, now: datetime, max_age: int) -> bool:
     """A mark needs recent reserves. A missing reserve is not a price."""
 
@@ -89,12 +118,13 @@ def collect_marks(
     refreshed: dict[str, PoolQuote],
     stored: dict[str, PoolQuote],
     stored_max_age_seconds: int | None = None,
+    external: dict[str, PoolQuote] | None = None,
 ) -> dict[str, PoolQuote]:
     """Resolve marks for the given mints.
 
-    Preference is a live pool refresh, then a fresh seeded (current-cycle)
-    quote, then the last stored radar analysis with a longer age window.
-    That last source is what an entry used when the live call is refused.
+    Preference is a live GMGN pool refresh, then a fresh seeded
+    (current-cycle) quote, then a DexScreener SOL mark, then the last
+    stored radar analysis with a longer age window.
     """
 
     held_age = (
@@ -109,6 +139,10 @@ def collect_marks(
         seed = seeded.get(mint)
         if seed is not None and quote_usable(seed, now, max_age_seconds):
             found[mint] = seed
+            continue
+        ext = None if external is None else external.get(mint)
+        if ext is not None and quote_usable(ext, now, max_age_seconds):
+            found[mint] = ext
             continue
         held = stored.get(mint)
         if held is not None and quote_usable(held, now, held_age):

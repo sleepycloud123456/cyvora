@@ -23,6 +23,7 @@ class RadarCandidate:
     base_reserve: Decimal | None
     quote_reserve: Decimal | None
     creation_timestamp: int | None
+    liquidity: Decimal | None = None
 
 
 @dataclass(frozen=True)

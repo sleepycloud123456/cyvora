@@ -278,6 +278,7 @@ def _kwargs(
     require_price_feed: bool = False,
     feed_marks: dict[str, PoolQuote] | None = None,
     max_mark_age_seconds: int | None = None,
+    min_liquidity_usd: Decimal = Decimal(0),
 ) -> dict[str, object]:
     return {
         "mode": mode,
@@ -302,6 +303,7 @@ def _kwargs(
         "require_price_feed": require_price_feed,
         "feed_marks": feed_marks,
         "max_mark_age_seconds": max_mark_age_seconds,
+        "min_liquidity_usd": min_liquidity_usd,
     }
 
 
@@ -312,18 +314,21 @@ def _candidate(
     score: Decimal = Decimal(80),
     lifecycle: str = "watch_suggested",
     security: str = "APPROVED_FOR_FURTHER_ANALYSIS",
+    liquidity: Decimal | None = Decimal(80000),
+    freshness: str = "fresh",
 ) -> RadarCandidate:
     return RadarCandidate(
         mint=mint,
         symbol=symbol,
         score=score,
         lifecycle=lifecycle,
-        freshness="fresh",
+        freshness=freshness,
         security_category=security,
         price=Decimal("0.001"),
         base_reserve=Decimal(1_000_000),
         quote_reserve=Decimal(1000),
         creation_timestamp=None,
+        liquidity=liquidity,
     )
 
 
@@ -575,3 +580,76 @@ def test_paper_require_price_feed_defaults_on(tmp_path: Path) -> None:
     settings = Settings(_env_file=None, log_dir=tmp_path)
     assert settings.paper_require_price_feed is True
 
+
+def test_collect_marks_prefers_dexscreener_over_stale_stored_radar() -> None:
+    later = NOW + timedelta(seconds=200)
+    stored = {USDC: _quote(USDC, observed=NOW)}
+    external = {USDC: _quote(USDC, base=Decimal(2_000_000), quote=Decimal(400), observed=later)}
+    marks = collect_marks(
+        (USDC,),
+        now=later,
+        max_age_seconds=120,
+        seeded={USDC: _quote(USDC, observed=NOW)},
+        refreshed={},
+        stored=stored,
+        stored_max_age_seconds=600,
+        external=external,
+    )
+    assert marks[USDC] is external[USDC]
+
+
+def test_price_feed_gate_accepts_a_dexscreener_mark() -> None:
+    store = MemoryTradingStore()
+    close = {USDC: _quote(USDC, base=Decimal(1_000_000), quote=Decimal(1050))}
+    result = run_once(
+        **_kwargs(
+            store,
+            (_candidate(),),
+            _quotes(),
+            require_price_feed=True,
+            feed_marks=close,
+        )
+    )
+    assert result.submitted_count == 1
+    assert result.decisions[-1].action == "submitted"
+
+
+def test_low_liquidity_is_refused_and_live_quote_can_enter() -> None:
+    thin = MemoryTradingStore()
+    refused = run_once(
+        **_kwargs(
+            thin,
+            (_candidate(liquidity=Decimal(1000)),),
+            _quotes(),
+            min_liquidity_usd=Decimal(10000),
+        )
+    )
+    assert refused.submitted_count == 0
+    assert refused.decisions[-1].reason == "below_liquidity"
+    missing = MemoryTradingStore()
+    skipped = run_once(
+        **_kwargs(
+            missing,
+            (_candidate(liquidity=None),),
+            _quotes(),
+            min_liquidity_usd=Decimal(10000),
+        )
+    )
+    assert skipped.decisions[-1].reason == "liquidity_missing"
+    store = MemoryTradingStore()
+    accepted = run_once(
+        **_kwargs(
+            store,
+            (_candidate(liquidity=Decimal(25000), freshness="live_quote"),),
+            _quotes(),
+            min_liquidity_usd=Decimal(10000),
+        )
+    )
+    assert accepted.submitted_count == 1
+    assert store.list_orders()[0].simulated is True
+
+
+def test_dexscreener_and_liquidity_settings_default(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, log_dir=tmp_path)
+    assert settings.radar_dexscreener_limit == 10
+    assert settings.paper_min_liquidity_usd == Decimal(10000)

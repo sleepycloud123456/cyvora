@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from config.settings import Settings
+from integrations.dexscreener.client import DexScreenerClient
+from integrations.dexscreener.models import DexScreenerQuote, reserves_for
 from integrations.gmgn.client import GMGNClient, client_from_settings
 from integrations.gmgn.constants import route_weight
 from integrations.gmgn.errors import GMGNError, GMGNRateLimitError, GMGNTransportError
@@ -56,6 +58,7 @@ class CycleResult:
     rate_limit_hits: int
     lines: tuple[str, ...]
     error_code: str | None
+    dexscreener_count: int = 0
 
     def public_report(self) -> str:
         header = [
@@ -68,6 +71,7 @@ class CycleResult:
             f"requests={self.request_count}",
             f"trending={self.trending_count}",
             f"launches={self.launch_count}",
+            f"dexscreener={self.dexscreener_count}",
             f"analysed={self.analysed_count}",
             f"rate_limit_hits={self.rate_limit_hits}",
             f"error_code={self.error_code or 'none'}",
@@ -109,6 +113,8 @@ class _Candidate:
     creation_timestamp: int | None
     price_change: Decimal | None
     rank_extra: dict[str, object] | None
+    base_reserve: Decimal | None = None
+    quote_reserve: Decimal | None = None
 
 
 async def run_radar_cycle(
@@ -116,6 +122,7 @@ async def run_radar_cycle(
     store: RadarStore,
     *,
     client: GMGNClient | None = None,
+    dexscreener: DexScreenerClient | None = None,
     now: datetime | None = None,
 ) -> CycleResult:
     """Discover, analyse, score, rank, and store one Solana cycle."""
@@ -124,28 +131,40 @@ async def run_radar_cycle(
     budget = _Budget(settings.radar_budget_weight)
     owns_client = client is None
     active = client or client_from_settings(settings)
+    owns_dex = False
+    dex_client = dexscreener
+    if dex_client is None and settings.radar_dexscreener_limit > 0:
+        dex_client = DexScreenerClient()
+        owns_dex = True
     discoveries: list[DiscoveryRecord] = []
     analyses: list[AnalysisRecord] = []
     suggestions: list[tuple[str, str, str | None]] = []
     trending_count = 0
     launch_count = 0
+    dexscreener_count = 0
     status = "failed"
     error_code: str | None = None
     try:
         surface = GMGNReadOnly(active)
-        candidates, trending_count, launch_count = await _discover(
+        candidates, trending_count, launch_count, dexscreener_count = await _discover(
             settings,
             surface,
             budget,
             moment,
             discoveries,
+            dex_client,
         )
         changes = tuple(
             row.price_change
             for row in discoveries
             if row.source == "trending" and row.price_change is not None
         )
-        selected = _select(candidates, settings.radar_analyse_limit)
+        selected = _select(
+            candidates,
+            settings.radar_analyse_limit,
+            extra_source="dexscreener",
+            extra_limit=settings.radar_dexscreener_limit,
+        )
         scored: list[_Analysed] = []
         for candidate in selected:
             analysed = await _analyse(settings, surface, store, budget, candidate, changes, moment)
@@ -159,12 +178,16 @@ async def run_radar_cycle(
                 suggestions.append(
                     (item.candidate.chain, item.candidate.address, item.candidate.symbol)
                 )
-        status = _status(trending_count, launch_count, len(analyses), budget.failures)
+        status = _status(
+            trending_count, launch_count, dexscreener_count, len(analyses), budget.failures
+        )
     except Exception as exc:
         error_code = type(exc).__name__
         status = "failed"
         budget.failures.append(f"cycle:{error_code}")
     finally:
+        if owns_dex and dex_client is not None:
+            await dex_client.aclose()
         if owns_client:
             await active.aclose()
 
@@ -206,6 +229,7 @@ async def run_radar_cycle(
         rate_limit_hits=budget.rate_limit_hits,
         lines=lines,
         error_code=error_code,
+        dexscreener_count=dexscreener_count,
     )
 
 
@@ -215,7 +239,8 @@ async def _discover(
     budget: _Budget,
     moment: datetime,
     discoveries: list[DiscoveryRecord],
-) -> tuple[dict[tuple[str, str], _Candidate], int, int]:
+    dexscreener: DexScreenerClient | None,
+) -> tuple[dict[tuple[str, str], _Candidate], int, int, int]:
     candidates: dict[tuple[str, str], _Candidate] = {}
     trending = await _read(
         budget,
@@ -241,7 +266,17 @@ async def _discover(
         _add_trending(candidates, discoveries, trending_row, settings.radar_chain, moment)
     for launch_row in launch_rows:
         _add_launch(candidates, discoveries, launch_row, settings.radar_chain, moment)
-    return candidates, len(trending_rows), len(launch_rows)
+    dexscreener_count = 0
+    if dexscreener is not None and settings.radar_dexscreener_limit > 0:
+        try:
+            rows = await dexscreener.discover_solana(settings.radar_dexscreener_limit)
+        except Exception as exc:
+            budget.failures.append(f"dexscreener:{type(exc).__name__}")
+            rows = ()
+        for row in rows:
+            if _add_dexscreener(candidates, discoveries, row, settings.radar_chain, moment):
+                dexscreener_count += 1
+    return candidates, len(trending_rows), len(launch_rows), dexscreener_count
 
 
 @dataclass(slots=True)
@@ -310,7 +345,14 @@ async def _analyse(
             "traders",
             lambda: surface.tokens.traders(chain, address, limit=10, order_by="profit"),
         )
-    if info is None and security is None and pool is None and candles is None:
+    if (
+        info is None
+        and security is None
+        and pool is None
+        and candles is None
+        and candidate.price is None
+        and candidate.liquidity is None
+    ):
         return None
     if info is not None:
         routes.append("GET /v1/token/info")
@@ -326,16 +368,25 @@ async def _analyse(
         routes.append("GET /v1/market/token_top_holders")
     if traders is not None:
         routes.append("GET /v1/market/token_top_traders")
+    if "dexscreener" in candidate.sources:
+        routes.append("GET /tokens/v1/solana")
     stale = candle_is_stale(points, now_unix=to_unix, resolution=settings.radar_kline_resolution)
     has_time = any(point.time is not None for point in points)
     if not points or not has_time:
-        freshness = "unknown"
+        if "dexscreener" in candidate.sources and candidate.price is not None:
+            freshness = "live_quote"
+        else:
+            freshness = "unknown"
     elif stale:
         freshness = "stale"
     else:
         freshness = "fresh"
     pool_base = None if pool is None else as_decimal(pool.payload.base_reserve)
     pool_quote = None if pool is None else as_decimal(pool.payload.quote_reserve)
+    if pool_base is None:
+        pool_base = candidate.base_reserve
+    if pool_quote is None:
+        pool_quote = candidate.quote_reserve
     scored = score_token(
         ScoreInputs(
             security=None if security is None else security.payload,
@@ -350,6 +401,7 @@ async def _analyse(
             discovered_liquidity=candidate.liquidity,
             prior_liquidity=store.latest_liquidity(chain, address),
             sources=tuple(candidate.sources),
+            discovered_volume=candidate.volume,
         )
     )
     return _Analysed(
@@ -540,6 +592,58 @@ def _add_launch(
     )
 
 
+def _add_dexscreener(
+    candidates: dict[tuple[str, str], _Candidate],
+    discoveries: list[DiscoveryRecord],
+    row: DexScreenerQuote,
+    chain: str,
+    moment: datetime,
+) -> bool:
+    address = _address(row.mint, chain)
+    if address is None:
+        return False
+    base, quote_reserve = reserves_for(row)
+    _merge(
+        candidates,
+        _Candidate(
+            chain=chain,
+            address=address,
+            symbol=_clip(row.symbol, 64),
+            name=_clip(row.name, 256),
+            sources=["dexscreener"],
+            price=row.price_native,
+            market_cap=row.market_cap,
+            liquidity=row.liquidity_usd,
+            volume=row.volume_usd,
+            holder_count=None,
+            creation_timestamp=row.pair_created_at,
+            price_change=None,
+            rank_extra=None,
+            base_reserve=base,
+            quote_reserve=quote_reserve,
+        ),
+    )
+    discoveries.append(
+        DiscoveryRecord(
+            source="dexscreener",
+            chain=chain,
+            address=address,
+            symbol=_clip(row.symbol, 64),
+            name=_clip(row.name, 256),
+            price=row.price_native,
+            market_cap=row.market_cap,
+            liquidity=row.liquidity_usd,
+            volume=row.volume_usd,
+            holder_count=None,
+            creation_timestamp=row.pair_created_at,
+            route="GET /tokens/v1/solana",
+            retrieved_at=moment,
+            price_change=None,
+        )
+    )
+    return True
+
+
 def _merge(candidates: dict[tuple[str, str], _Candidate], incoming: _Candidate) -> None:
     key = (incoming.chain, incoming.address)
     current = candidates.get(key)
@@ -568,9 +672,19 @@ def _merge(candidates: dict[tuple[str, str], _Candidate], incoming: _Candidate) 
     )
     if current.rank_extra is None:
         current.rank_extra = incoming.rank_extra
+    if current.base_reserve is None:
+        current.base_reserve = incoming.base_reserve
+    if current.quote_reserve is None:
+        current.quote_reserve = incoming.quote_reserve
 
 
-def _select(candidates: dict[tuple[str, str], _Candidate], limit: int) -> list[_Candidate]:
+def _select(
+    candidates: dict[tuple[str, str], _Candidate],
+    limit: int,
+    *,
+    extra_source: str | None = None,
+    extra_limit: int = 0,
+) -> list[_Candidate]:
     ordered = sorted(
         candidates.values(),
         key=lambda item: (
@@ -579,7 +693,23 @@ def _select(candidates: dict[tuple[str, str], _Candidate], limit: int) -> list[_
             item.address,
         ),
     )
-    return ordered[:limit]
+    primary = ordered[:limit]
+    if extra_source is None or extra_limit <= 0:
+        return primary
+    taken = {(item.chain, item.address) for item in primary}
+    extras = [
+        item
+        for item in ordered
+        if extra_source in item.sources and (item.chain, item.address) not in taken
+    ]
+    extras.sort(
+        key=lambda item: (
+            item.liquidity is None,
+            -(item.liquidity or Decimal(0)),
+            item.address,
+        )
+    )
+    return [*primary, *extras[:extra_limit]]
 
 
 def _price_change(row: TrendingToken) -> Decimal | None:
@@ -612,8 +742,10 @@ def _clip(value: str | None, limit: int) -> str | None:
     return cleaned[:limit]
 
 
-def _status(trending: int, launches: int, analysed: int, failures: list[str]) -> str:
-    if trending == 0 and launches == 0:
+def _status(
+    trending: int, launches: int, dexscreener: int, analysed: int, failures: list[str]
+) -> str:
+    if trending == 0 and launches == 0 and dexscreener == 0:
         return "failed"
     if analysed == 0 or failures:
         return "partial"
@@ -624,7 +756,8 @@ def _note(settings: Settings, budget: _Budget) -> str:
     failure_text = ",".join(budget.failures[:8]) or "none"
     text = (
         f"retention_days={settings.radar_market_retention_days}; "
-        f"plan={settings.gmgn_plan}; failures={failure_text}"
+        f"plan={settings.gmgn_plan}; "
+        f"dexscreener={settings.radar_dexscreener_limit}; failures={failure_text}"
     )
     return text[:500]
 

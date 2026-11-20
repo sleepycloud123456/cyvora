@@ -16,6 +16,7 @@ def candidate_from_analysis(
     freshness: str,
     security_category: str,
     breakdown: object,
+    liquidity: Decimal | None = None,
 ) -> RadarCandidate:
     """Read price and pool reserves from the analysis breakdown.
 
@@ -35,6 +36,9 @@ def candidate_from_analysis(
         base_reserve=as_decimal(payload.get("base_reserve")),
         quote_reserve=as_decimal(payload.get("quote_reserve")),
         creation_timestamp=_whole(payload.get("creation_timestamp")),
+        liquidity=as_decimal(liquidity)
+        if liquidity is not None
+        else as_decimal(payload.get("liquidity")),
     )
 
 

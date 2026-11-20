@@ -217,6 +217,7 @@ class PostgresPaperTraderRepository:
                             analysis.freshness,
                             analysis.security_category,
                             analysis.breakdown,
+                            liquidity=analysis.liquidity,
                         )
                     )
                 finished = cycle.finished_at

@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from apps.api.main import create_app
 from apps.desktop.windows.main_window import MainWindow
 from config.settings import Settings
+from integrations.dexscreener.client import DexScreenerClient
+from integrations.dexscreener.constants import WSOL_MINT as DEX_WSOL
 from integrations.gmgn.client import GMGNClient
 from integrations.gmgn.models import TokenInfo, TokenSecurity
 from intelligence.cycle import run_radar_cycle
@@ -166,6 +168,30 @@ def test_rank_puts_rejected_tokens_last() -> None:
     assert approved.confirmation_bonus == Decimal(5)
 
 
+def test_discovered_volume_is_scored_when_candles_are_missing() -> None:
+    scored = score_token(
+        ScoreInputs(
+            security=None,
+            info=None,
+            pool=None,
+            candles=(),
+            holders=None,
+            traders=None,
+            rank_changes=(),
+            rank_extra=None,
+            stale_candles=False,
+            discovered_liquidity=Decimal(50000),
+            prior_liquidity=None,
+            sources=("dexscreener",),
+            discovered_volume=Decimal(25000),
+        )
+    )
+    assert scored.liquidity.figure == Decimal(50000)
+    volume = next(item for item in scored.components if item.name == "volume")
+    assert volume.score is not None
+    assert volume.quality == "partial"
+
+
 def test_delay_grows_after_a_partial_cycle() -> None:
     from intelligence.cycle import CycleResult
 
@@ -268,6 +294,7 @@ async def test_mocked_cycle_discovers_scores_and_stores_without_a_trade() -> Non
         radar_launch_limit=1,
         radar_analyse_limit=1,
         radar_budget_weight=10,
+        radar_dexscreener_limit=0,
         radar_kline_lookback_seconds=3600,
     )
     store = MemoryRadarStore()
@@ -335,6 +362,7 @@ async def test_cycle_stops_sending_after_a_rate_limit() -> None:
         radar_launch_limit=1,
         radar_analyse_limit=1,
         radar_budget_weight=10,
+        radar_dexscreener_limit=0,
     )
     result = await run_radar_cycle(
         settings,
@@ -402,6 +430,128 @@ def test_scanner_page_does_not_invent_tokens(qtbot) -> None:  # type: ignore[no-
     assert "not configured" in window.scanner.summary.text()
     assert window.scanner.table.rowCount() == 0
     assert window.scanner.run_button.text().startswith("Run one read-only")
+
+
+@pytest.mark.asyncio
+async def test_cycle_adds_dexscreener_candidates_and_scores_without_gmgn_reads() -> None:
+    def gmgn_handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/v1/market/rank":
+            return _ok({"rank": [_rank(USDC, "0.2")]})
+        if request.url.path == "/v1/trenches":
+            return _ok({"new_creation": []})
+        if request.url.path == "/v1/token/info":
+            return _ok({"address": USDC, "symbol": "USDC", "liquidity": "80000"})
+        if request.url.path == "/v1/token/security":
+            return _ok({"address": USDC, "is_honeypot": False})
+        if request.url.path == "/v1/token/pool_info":
+            return _ok(
+                {
+                    "address": USDC,
+                    "base_reserve": "1000000",
+                    "quote_reserve": "1000",
+                    "price": "0.001",
+                }
+            )
+        if request.url.path == "/v1/market/token_kline":
+            stamp = 1_700_000_000
+            return _ok(
+                {
+                    "list": [
+                        _candle(stamp - 120, "1.0", "1.0"),
+                        _candle(stamp - 60, "1.0", "1.1"),
+                        _candle(stamp, "1.1", "1.2"),
+                    ]
+                }
+            )
+        raise AssertionError(request.url.path)
+
+    def dex_handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/token-boosts/latest/v1":
+            return httpx2.Response(200, json=[{"chainId": "solana", "tokenAddress": BONK}])
+        if request.url.path == "/token-profiles/latest/v1":
+            return httpx2.Response(200, json=[])
+        if request.url.path == "/latest/dex/search":
+            return httpx2.Response(200, json={"schemaVersion": "1", "pairs": []})
+        if request.url.path.startswith("/tokens/v1/solana/"):
+            return httpx2.Response(
+                200,
+                json=[
+                    {
+                        "chainId": "solana",
+                        "dexId": "raydium",
+                        "pairAddress": "bonkpair",
+                        "baseToken": {"address": BONK, "name": "Bonk", "symbol": "BONK"},
+                        "quoteToken": {
+                            "address": DEX_WSOL,
+                            "name": "Wrapped SOL",
+                            "symbol": "SOL",
+                        },
+                        "priceNative": "0.0002",
+                        "priceUsd": "0.02",
+                        "liquidity": {"usd": 45000, "base": 1000000, "quote": 200},
+                        "volume": {"h24": 18000},
+                        "marketCap": 90000,
+                        "pairCreatedAt": 1_700_000_000_000,
+                    }
+                ],
+            )
+        raise AssertionError(request.url.path)
+
+    now = [1_700_000_000.0]
+
+    def clock() -> float:
+        return now[0]
+
+    async def sleeper(seconds: float) -> None:
+        now[0] += seconds
+
+    gmgn = GMGNClient(
+        "gmgn-test-key-not-real",
+        transport=httpx2.MockTransport(gmgn_handler),
+        clock=clock,
+        sleeper=sleeper,
+        client_id_factory=lambda: "client-id-test",
+    )
+    dex = DexScreenerClient(
+        transport=httpx2.MockTransport(dex_handler),
+        clock=clock,
+        sleeper=sleeper,
+    )
+    settings = Settings(
+        _env_file=None,
+        gmgn_api_key="gmgn-test-key-not-real",
+        radar_trending_limit=1,
+        radar_launch_limit=1,
+        radar_analyse_limit=1,
+        radar_budget_weight=10,
+        radar_dexscreener_limit=1,
+        radar_kline_lookback_seconds=3600,
+    )
+    store = MemoryRadarStore()
+    result = await run_radar_cycle(
+        settings,
+        store,
+        client=gmgn,
+        dexscreener=dex,
+        now=datetime.fromtimestamp(1_700_000_000, UTC),
+    )
+    await dex.aclose()
+    await gmgn.aclose()
+    assert result.status == "partial"
+    assert result.trending_count == 1
+    assert result.dexscreener_count == 1
+    assert result.analysed_count == 2
+    stored = store.cycles[-1]
+    addresses = {row.address for row in stored.analyses}
+    assert USDC in addresses
+    assert BONK in addresses
+    bonk = next(row for row in stored.analyses if row.address == BONK)
+    assert "dexscreener" in bonk.sources
+    assert bonk.liquidity == Decimal("45000")
+    assert bonk.freshness == "live_quote"
+    sources = {row.source for row in stored.discoveries}
+    assert "trending" in sources
+    assert "dexscreener" in sources
 
 
 def test_intelligence_source_has_no_trade_or_signing_path() -> None:
