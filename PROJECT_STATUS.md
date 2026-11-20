@@ -12,6 +12,7 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## Completed work
 
+- Historical import, quality reports, Paper Trading and Backtesting controls, and a supervised paper strategy runner on 2026-11-18. Live trading stays locked. Candle volume is not executable depth. The runner uses Shield, idempotency, the kill switch, and the active profile signal threshold. Revision `0009_historical_pipeline` revises `0008_readiness`.
 - Terminal visual redesign on 2026-11-11. Black surfaces, a purple accent, an icon rail, compact pages, and a dashboard hologram. Live trading stays locked. Radar, Portfolio, CYVORA Intelligence, and Settings remain in the navigation catalog and are not on the rail. Pause, resume, and the kill switch are on the header and Risk Management. The Dashboard starts the same read-only radar cycle.
 - Phase 1 foundation, merged as PR #1.
 - Phase 2 read-only GMGN client, merged as PR #2 (`4c48ad7`).
@@ -32,6 +33,16 @@ Nothing inside Phase 9. A paper-only Nautilus health check and two local securit
 None for the readiness boundary. Live trading is still disabled. The report, a paper approval, a profile, an analyst finding, and a released kill switch do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
+
+Recorded on 2026-11-20 after merging main into the historical pipeline branch:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 162 passed, 5 skipped. The skips are the opt-in GMGN and radar live smokes, and the three PostgreSQL regression tests because `CYVORA_TEST_DATABASE_URL` was unset in that run.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with mode `READ-ONLY`, database not configured, backend offline, and GMGN not configured.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- Live trading stayed disabled. The header, Risk Management, and Dashboard controls from main stayed in place. Revision `0009_historical_pipeline` still revises `0008_readiness`.
 
 Recorded on 2026-11-20 after merging the terminal redesign into the CI branch:
 
@@ -102,7 +113,7 @@ No API key or database URL is printed.
 - Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
 - NautilusTrader 1.231.0 metadata still requires `fsspec==2026.2.0`. The lock overrides that pin and resolves `fsspec` 2026.9.0, which closes PYSEC-2026-4217. CYVORA does not open a reference filesystem.
 - The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The configured mode is `READ_ONLY`, so the API refuses to store a paper order until the mode is `PAPER`.
-- No simulation dataset is stored, so the short backtest used a three-bar series in the stored-bar shape. It did not write a run.
+- No simulation dataset was stored in the smoke run, so that run did not write a backtest. A dataset can be imported when PostgreSQL and the local API are configured.
 - `/health` without a token returns `{"status": "live"}` only. The detailed body requires the local token.
 - The GitHub repository is public. `.env` is not in its history. Changing visibility is an operator decision.
 - Nautilus 1.231.0 on this wheel has fixed precision 9. A wider price stays in CYVORA `Decimal` and is not rounded into a Nautilus price.
@@ -122,7 +133,7 @@ No API key or database URL is printed.
 - The latest radar cycle does not store a market-condition label.
 - Smart-money accumulation and application-stopped notices have no stored source, so they are not emitted.
 - Entry and exit markers are not drawn on candles. Buy and sell pressure is not a stored series. Liquidity history is stored and is not a separate chart.
-- A profile signal threshold is recorded and is not applied to the score or to Shield.
+- The active profile signal threshold gates paper strategy entries. Radar scoring and Shield do not read it. A missing threshold does not become zero and does not submit an entry.
 - Telegram delivery is off. No bot token is loaded.
 - There is no websocket server and no external queue. Health says so.
 - Retention is a plan. Audit events and backtests are not deleted.

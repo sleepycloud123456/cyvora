@@ -11,6 +11,7 @@ from monitoring.logging import configure_logging
 from operations.assembly import default_workers
 from operations.recovery import startup_recovery
 from operations.supervisor import OperationsLog, Supervisor
+from readiness.guard import operator_orders_blocked
 
 
 def execute(
@@ -27,8 +28,16 @@ def execute(
         from database.repositories.operations import PostgresOperationsRepository
 
         log = PostgresOperationsRepository(settings)
+
+    def paper_blocked() -> bool:
+        return recovery.entries_blocked or operator_orders_blocked(settings)
+
     supervisor = Supervisor(
-        default_workers(settings, allow_radar_network=allow_radar_network),
+        default_workers(
+            settings,
+            allow_radar_network=allow_radar_network,
+            paper_entries_blocked=paper_blocked,
+        ),
         restart_limit=settings.worker_restart_limit,
         execution_mode=settings.execution_mode,
         log=log,

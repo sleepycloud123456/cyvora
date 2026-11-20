@@ -34,10 +34,13 @@ from database.models.shield import (
     ShieldStop,
 )
 from database.models.simulation import (
+    PaperStrategyAuditRow,
     SimulationAssumption,
     SimulationBar,
+    SimulationCollection,
     SimulationDataset,
     SimulationMember,
+    SimulationQualityReport,
     SimulationRun,
     SimulationSignalRow,
 )
@@ -61,6 +64,7 @@ __all__ = [
     "OperationHeartbeat",
     "OperationRecovery",
     "OperationWorker",
+    "PaperStrategyAuditRow",
     "LiquiditySnapshot",
     "RadarCycle",
     "ReadinessControl",
@@ -75,8 +79,10 @@ __all__ = [
     "ShieldStop",
     "SimulationAssumption",
     "SimulationBar",
+    "SimulationCollection",
     "SimulationDataset",
     "SimulationMember",
+    "SimulationQualityReport",
     "SimulationRun",
     "SimulationSignalRow",
     "SmartMoneyEvent",

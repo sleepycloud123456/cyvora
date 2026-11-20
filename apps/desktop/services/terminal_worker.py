@@ -116,9 +116,7 @@ def _run(settings: Settings, action: str, payload: object) -> str:
     if action in {"start", "stop"}:
         if not isinstance(payload, str):
             raise CyvoraError("A strategy id is required.")
-        _strategy(settings, payload, start=action == "start")
-        verb = "started" if action == "start" else "stopped"
-        return f"The strategy was {verb}. No order was submitted."
+        return _strategy(settings, payload, start=action == "start")
     raise CyvoraError("That terminal action is not available.")
 
 
@@ -145,7 +143,7 @@ def _kill_switch(settings: Settings, action: str, now: datetime) -> str:
     )
 
 
-def _strategy(settings: Settings, strategy_id: str, *, start: bool) -> None:
+def _strategy(settings: Settings, strategy_id: str, *, start: bool) -> str:
     store = PostgresTradingRepository(settings)
 
     def clock() -> datetime:
@@ -155,5 +153,9 @@ def _strategy(settings: Settings, strategy_id: str, *, start: bool) -> None:
     manager = StrategyManager(settings.execution_mode, store, gateway, clock)
     if start:
         manager.start(strategy_id)
-        return
+        from trading.strategies.runtime import evaluate_stored
+
+        summary = evaluate_stored(settings, datetime.now(UTC), strategy_id=strategy_id)
+        return f"The strategy was started. {summary.detail}"
     manager.stop(strategy_id)
+    return "The strategy was stopped. Live trading stays locked."

@@ -1,6 +1,6 @@
 [project]
 name = "cyvora"
-version = "0.9.2"
+version = "0.9.3"
 description = "CYVORA Autonomous Trading Platform — simulation and paper broker"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -141,5 +141,5 @@ check_untyped_defs = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
-module = ["nautilus_trader", "nautilus_trader.*"]
+module = ["nautilus_trader", "nautilus_trader.*", "pyarrow", "pyarrow.*"]
 ignore_missing_imports = true

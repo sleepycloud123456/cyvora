@@ -1,4 +1,8 @@
-"""Bounded local workers. A tick does not submit an order."""
+"""Bounded local workers.
+
+A tick does not submit a live order. Paper strategy evaluation lives in
+``trading.strategies.runtime`` and can submit a paper order through Shield.
+"""
 
 from __future__ import annotations
 

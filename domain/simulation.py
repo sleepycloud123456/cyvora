@@ -225,3 +225,38 @@ class SimulationReport:
     parameters_deployed: bool
     windows: tuple[WindowResult, ...]
     strategies: tuple[StrategySummary, ...]
+    equity_curve: tuple[Decimal, ...] = ()
+
+
+@dataclass(frozen=True)
+class QualityFinding:
+    """One quality observation. A finding does not invent a fill."""
+
+    kind: str
+    mint: str
+    observed_at: datetime | None
+    detail: str
+
+
+@dataclass(frozen=True)
+class DatasetQuality:
+    """Gaps, staleness, outliers, and whether bars can actually fill.
+
+    ``volume_only_bar_count`` counts bars whose quote volume is present and
+    whose reserve pair and displayed depth are not. Volume is not depth.
+    """
+
+    dataset_id: str
+    checked_at: datetime
+    bar_count: int
+    mint_count: int
+    gap_count: int
+    stale: bool
+    outlier_count: int
+    fillable_bar_count: int
+    reserve_bar_count: int
+    depth_bar_count: int
+    volume_only_bar_count: int
+    limitations: tuple[str, ...]
+    findings: tuple[QualityFinding, ...]
+    live_trading_enabled: bool = False

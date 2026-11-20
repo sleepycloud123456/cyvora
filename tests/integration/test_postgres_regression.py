@@ -236,7 +236,21 @@ def migrated_postgres() -> _Database:
 
 def test_alembic_upgrade_downgrade_round_trip(migrated_postgres: _Database) -> None:
     url = migrated_postgres
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == "0009_historical_pipeline"
+    assert _relation(url, "paper_strategy_audits") == "paper_strategy_audits"
+    assert _relation(url, "simulation_quality_reports") == "simulation_quality_reports"
+    _expect_rejected(
+        url,
+        "INSERT INTO paper_strategy_audits "
+        "(strategy_id, action, reason, created_at, live_trading_enabled) "
+        "VALUES ('runner', 'skipped', 'merge check', CURRENT_TIMESTAMP, true)",
+    )
+    _run_alembic(url, "downgrade", "0008_readiness")
     assert _scalar(url, "SELECT version_num FROM alembic_version") == "0008_readiness"
+    assert _relation(url, "paper_strategy_audits") is None
+    assert _relation(url, "readiness_controls") == "readiness_controls"
+    _run_alembic(url, "upgrade", "head")
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == "0009_historical_pipeline"
     assert _rows(
         url,
         "SELECT live_trading_enabled, authorization_state FROM readiness_controls WHERE id = 1",
@@ -285,7 +299,7 @@ def test_alembic_upgrade_downgrade_round_trip(migrated_postgres: _Database) -> N
         assert _rows(url, "SELECT version_num FROM alembic_version") == []
     finally:
         _run_alembic(url, "upgrade", "head")
-    assert _scalar(url, "SELECT version_num FROM alembic_version") == "0008_readiness"
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == "0009_historical_pipeline"
     assert _rows(
         url,
         "SELECT live_trading_enabled, authorization_state, kill_switch_engaged "

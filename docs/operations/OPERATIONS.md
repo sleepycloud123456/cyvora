@@ -17,7 +17,7 @@ Wallet balances are not read. The recovery row stores `wallet_reconciliation = n
 
 ## Supervisor
 
-`operations.startup` runs four workers for a fixed number of ticks:
+`operations.startup` runs five workers for a fixed number of ticks:
 
 | Worker | Tick |
 |---|---|
@@ -25,6 +25,7 @@ Wallet balances are not read. The recovery row stores `wallet_reconciliation = n
 | `freshness` | Reads the newest stored radar cycle time. It does not call GMGN. |
 | `portfolio` | Counts stored open paper positions. A failed read is not reported as zero. |
 | `notifications` | Counts stored local notices. Telegram delivery stays off. |
+| `paper_strategy` | Evaluates `RUNNING` strategies in `PAPER` mode. An entry is submitted only through Shield, idempotency, and the kill-switch hook, and only when the active profile signal threshold is met. Read-only mode skips the tick. A missing database does not submit an order. |
 
 A tick that raises is retried up to `CYVORA_WORKER_RESTART_LIMIT` (default 2). The exception text is not stored. Heartbeats go to `operation_workers` and `operation_heartbeats` when PostgreSQL is configured. `cloud_deployed` and `live_trading_enabled` are constrained false.
 

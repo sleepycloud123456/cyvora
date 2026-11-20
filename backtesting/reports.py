@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from backtesting.performance import drawdown_series
 from domain.simulation import (
+    DatasetQuality,
     ExecutionAssumption,
     HistoricalBar,
     HistoricalDataset,
     HistoricalSignal,
     OrderSummary,
     PerformanceReport,
+    QualityFinding,
     SimulationReport,
     UniverseMember,
 )
@@ -68,6 +71,39 @@ def dump_report(report: SimulationReport) -> dict[str, object]:
             }
             for item in report.strategies
         ],
+        "equity_curve": [str(item) for item in report.equity_curve],
+        "drawdown_curve": [str(item) for item in drawdown_series(report.equity_curve)],
+        "live_trading_enabled": False,
+    }
+
+
+def dump_quality(report: DatasetQuality) -> dict[str, object]:
+    """Serialize a quality report. Live trading is written as false."""
+
+    return {
+        "dataset_id": report.dataset_id,
+        "checked_at": report.checked_at.isoformat(),
+        "bar_count": report.bar_count,
+        "mint_count": report.mint_count,
+        "gap_count": report.gap_count,
+        "stale": report.stale,
+        "outlier_count": report.outlier_count,
+        "fillable_bar_count": report.fillable_bar_count,
+        "reserve_bar_count": report.reserve_bar_count,
+        "depth_bar_count": report.depth_bar_count,
+        "volume_only_bar_count": report.volume_only_bar_count,
+        "limitations": list(report.limitations),
+        "findings": [_finding(item) for item in report.findings],
+        "live_trading_enabled": False,
+    }
+
+
+def _finding(item: QualityFinding) -> dict[str, object]:
+    return {
+        "kind": item.kind,
+        "mint": item.mint,
+        "observed_at": None if item.observed_at is None else item.observed_at.isoformat(),
+        "detail": item.detail,
     }
 
 

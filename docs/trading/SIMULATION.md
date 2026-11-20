@@ -39,7 +39,13 @@ The strategies in this phase are momentum, breakout, and a follower for stored e
 
 ## Stored radar candles
 
-`bar_from_radar_candle` copies a stored candle into a historical bar. Volume stays on `volume_quote`. Reserves are copied only when the stored snapshot is at or before the candle and both reserve fields were saved. A later snapshot is not copied onto an earlier candle. Importing those rows reads PostgreSQL. It does not call GMGN.
+`bar_from_radar_candle` copies a stored candle into a historical bar. Volume stays on `volume_quote`. Reserves are copied only when the stored snapshot is at or before the candle and both reserve fields were saved. A later snapshot is not copied onto an earlier candle. Importing those rows reads PostgreSQL. It does not call GMGN. The import keeps every stored candle up to the operational bar limit. It does not shorten the series to 400 rows.
+
+## Historical import and quality
+
+CSV and Parquet imports store quote volume on `volume_quote`. A column named `volume` is that same quote volume. It is not copied into `base_reserve`, `quote_reserve`, `bid_size`, or `ask_size`. A Parquet money column stored as a binary float is rejected. GMGN kline collection uses `GET /v1/market/token_kline` and records the same volume limitation. Adapter collection accepts observations the caller already has and does not open an RPC. A bar can fill only from a reserve pair or from displayed bid and ask sizes.
+
+Quality reports count gaps, staleness against the check time, inconsistent OHLC and large close-to-close moves, and how many bars are fillable. A stale report does not block a backtest. The counts are stored in PostgreSQL revision `0009_historical_pipeline`. One request can hold 50,000 bars, 512 mints, and 10,000 signals. A larger series is split across datasets and inserted in batches.
 
 ## What this phase does not do
 

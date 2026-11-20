@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -53,6 +54,7 @@ from trading.instruments import require_mint
 from trading.store import TradingStore
 from trading.strategies.manager import StrategyManager
 
+logger = logging.getLogger("cyvora.trading")
 router = APIRouter(dependencies=[Depends(require_local_token)], tags=["trading"])
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 
@@ -335,6 +337,31 @@ def _position_model(position: PositionRecord) -> PositionModel:
     )
 
 
+def _evaluate_started(request: Request, settings: Settings, strategy_id: str) -> None:
+    """Ask the paper runner to evaluate one started strategy. Failures stay local."""
+
+    if settings.execution_mode is not ExecutionMode.PAPER or not settings.database_url:
+        return
+    recovery = getattr(request.app.state, "recovery", None)
+
+    def blocked() -> bool:
+        if isinstance(recovery, RecoveryReport) and recovery.entries_blocked:
+            return True
+        return operator_orders_blocked(settings)
+
+    try:
+        from trading.strategies.runtime import evaluate_stored
+
+        evaluate_stored(
+            settings,
+            datetime.now(UTC),
+            strategy_id=strategy_id,
+            entries_blocked=blocked,
+        )
+    except Exception as exc:
+        logger.warning("paper strategy evaluation failed error_type=%s", type(exc).__name__)
+
+
 def _strategy_model(strategy: StrategyRecord) -> StrategyModel:
     return StrategyModel(
         strategy_id=strategy.strategy_id,
@@ -428,6 +455,7 @@ def start_strategy(strategy_id: str, request: Request, settings: SettingsDep) ->
     record = _call(lambda: manager.start(strategy_id))
     if not isinstance(record, StrategyRecord):
         raise HTTPException(status_code=500, detail="Internal server error")
+    _evaluate_started(request, settings, strategy_id)
     return _strategy_model(record)
 
 

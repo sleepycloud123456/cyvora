@@ -11,7 +11,11 @@ from domain.operations import RunReport, TickResult
 
 
 class Worker(Protocol):
-    """One local job. ``tick`` must not submit an order."""
+    """One local job.
+
+    A tick does not submit a live order. The paper strategy worker may submit
+    a paper order through Shield, and only in paper mode.
+    """
 
     kind: str
 

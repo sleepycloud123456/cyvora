@@ -92,7 +92,8 @@ class TradingPage(QWidget):
             controls.addWidget(stop)
             layout.addLayout(controls)
             self.performance.setText(
-                "Start and stop change the paper registry only. Neither submits an order."
+                "Start asks the supervisor to evaluate the strategy through Shield. "
+                "Live trading stays locked."
             )
         layout.addWidget(self.details)
         layout.addWidget(self.table, stretch=1)

@@ -12,14 +12,25 @@ from domain.simulation import HistoricalBar, HistoricalDataset, HistoricalSignal
 from trading.instruments import require_mint
 
 _ID = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
-_MAX_BARS = 400
-_MAX_MINTS = 4
-_MAX_SIGNALS = 50
+# Operational bounds for one in-process request. They are not a research sample.
+# Bars past these limits are stored by splitting the series, not by keeping the
+# first 400 rows or the first 4 mints.
+OPERATIONAL_BAR_LIMIT = 50_000
+OPERATIONAL_MINT_LIMIT = 512
+OPERATIONAL_SIGNAL_LIMIT = 10_000
 
 
-def require_dataset(dataset: HistoricalDataset) -> HistoricalDataset:
-    """Reject a series that is unlabeled, oversized, or timestamped without a zone."""
+def require_dataset(
+    dataset: HistoricalDataset,
+    *,
+    max_bars: int = OPERATIONAL_BAR_LIMIT,
+    max_mints: int = OPERATIONAL_MINT_LIMIT,
+    max_signals: int = OPERATIONAL_SIGNAL_LIMIT,
+) -> HistoricalDataset:
+    """Reject a series that is unlabeled, unbounded, or timestamped without a zone."""
 
+    if max_bars < 1 or max_mints < 1 or max_signals < 1:
+        raise TradingValidationError("A dataset limit must be at least 1.")
     if _ID.fullmatch(dataset.dataset_id) is None:
         raise TradingValidationError(
             "A dataset id must be 2 to 41 lowercase letters, digits, _ or -."
@@ -33,13 +44,19 @@ def require_dataset(dataset: HistoricalDataset) -> HistoricalDataset:
     note = dataset.selection_note.strip()
     if len(note) < 12 or len(note) > 240:
         raise TradingValidationError("A selection note must be 12 to 240 characters.")
-    if len(dataset.bars) > _MAX_BARS:
-        raise TradingValidationError("A dataset can store at most 400 bars.")
-    if len(dataset.signals) > _MAX_SIGNALS:
-        raise TradingValidationError("A dataset can store at most 50 signals.")
+    if len(dataset.bars) > max_bars:
+        raise TradingValidationError(
+            f"A dataset can store at most {max_bars} bars in one request. Split the series."
+        )
+    if len(dataset.signals) > max_signals:
+        raise TradingValidationError(
+            f"A dataset can store at most {max_signals} signals in one request."
+        )
     mints = {bar.mint for bar in dataset.bars}
-    if len(mints) > _MAX_MINTS:
-        raise TradingValidationError("A dataset can cover at most 4 mints.")
+    if len(mints) > max_mints:
+        raise TradingValidationError(
+            f"A dataset can cover at most {max_mints} mints in one request. Split the series."
+        )
     seen: set[tuple[str, datetime]] = set()
     bars: list[HistoricalBar] = []
     for bar in dataset.bars:

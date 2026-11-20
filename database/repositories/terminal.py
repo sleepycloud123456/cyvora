@@ -153,6 +153,26 @@ class PostgresTerminalRepository:
         finally:
             engine.dispose()
 
+    def active_signal_threshold(self) -> str | None:
+        """Return the active profile threshold. A missing value stays missing."""
+
+        engine = create_database_engine(self._settings)
+        try:
+            with Session(engine) as session:
+                row = session.scalar(
+                    select(TerminalProfile).where(TerminalProfile.active.is_(True))
+                )
+                if row is None:
+                    return None
+                return row.signal_threshold
+        except (DatabaseNotConfiguredError, DatabaseUnavailableError):
+            raise
+        except Exception as exc:
+            logger.warning("terminal threshold failed error_type=%s", type(exc).__name__)
+            raise DatabaseUnavailableError("The signal threshold could not be read.") from None
+        finally:
+            engine.dispose()
+
     def save_preferences(self, preferences: NotificationPreferences, now: datetime) -> None:
         if preferences.telegram_delivery or preferences.live_trading_enabled:
             raise TradingValidationError(
