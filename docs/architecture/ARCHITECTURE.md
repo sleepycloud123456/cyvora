@@ -35,7 +35,7 @@ CYVORA supervisor (separate process, bounded ticks)
     \-- radar only when --include-radar is set
 ```
 
-The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. Radar pages show the latest stored cycle or an empty state. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
+The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. The icon rail lists the operating pages. Radar, Portfolio, CYVORA Intelligence, and Settings stay in the navigation catalog. Radar pages still show the latest stored cycle or an empty state when opened. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
 
 ## Modules
 
@@ -51,7 +51,7 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `terminal` | Portfolio, analytics, the local analyst, and notification drafts. |
 | `database.repositories` | Radar history and the paper ledger. |
 | `apps.api` | Factory `create_app`. `/health`, authenticated `/radar`, and authenticated `/trading`. |
-| `apps.desktop` | Terminal window, theme, navigation, stored radar pages, and the simulation ledger. |
+| `apps.desktop` | Terminal window, black and purple theme, icon rail, stored pages, and the simulation ledger. |
 | `domain` | `ExecutionMode`, radar categories, paper records, errors, and status dataclasses. |
 | `integrations.gmgn` | Allowlisted GMGN reads, rate limiting, and a gateway that refuses trades. |
 | `integrations.solana` | Adapts supplied observations and GMGN candles into market contracts. No RPC. |

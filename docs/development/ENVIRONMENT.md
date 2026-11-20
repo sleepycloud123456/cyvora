@@ -78,6 +78,6 @@ Docker is still not installed. Do not point this project at a hosted database.
 | pytest-qt | 4.5.0 |
 | ruff | 0.17.4 |
 
-On 2026-11-11 the same environment also contains `cyvora` 0.9.1 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.
+On 2026-11-11 the same environment also contains `cyvora` 0.9.2 and `nautilus-trader` 1.231.0. Starlette 1.10.0, which FastAPI pulls in, prefers `httpx2` for `TestClient`. Live Windows GMGN calls still use the operating-system curl. The Nautilus transitive pins are in `uv.lock`.
 
-On 2026-11-18 the package version is 0.9.2. `uv.lock` overrides `fsspec` to a release at or after 2026.6.0 because NautilusTrader 1.231.0 pins the vulnerable 2026.2.0 release. `pip-audit` is a development dependency. GitHub Actions runs the quality checks on PostgreSQL 17.
+On 2026-11-18 `uv.lock` overrides `fsspec` to a release at or after 2026.6.0 because NautilusTrader 1.231.0 pins the vulnerable 2026.2.0 release. The resolved release is 2026.9.0. `pip-audit` is a development dependency. GitHub Actions runs the quality checks on PostgreSQL 17.

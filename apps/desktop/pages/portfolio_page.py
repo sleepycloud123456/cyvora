@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
+from apps.desktop.components.disclosure import DetailDisclosure
 from domain.terminal import PortfolioView
 from terminal.present import money, portfolio_text
 
@@ -32,32 +33,48 @@ class PortfolioPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(16)
         self.notice = QLabel("Terminal storage has not been read.")
-        self.notice.setObjectName("Notice")
+        self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
         self.summary = QLabel("")
         self.summary.setObjectName("Notice")
         self.summary.setWordWrap(True)
+        self.aside = QLabel("")
+        self.aside.setObjectName("Notice")
+        self.aside.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.aside)
+        self.details.add(self.summary)
         self.table = QTableWidget(0, len(_COLUMNS))
         self.table.setHorizontalHeaderLabels(list(_COLUMNS))
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.notice)
-        layout.addWidget(self.summary)
+        layout.addWidget(self.details)
         layout.addWidget(self.table, stretch=1)
+        self.table.verticalHeader().setDefaultSectionSize(40)
+        self.table.setShowGrid(False)
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+        self.notice.setVisible(True)
         self.summary.setText("")
+        self.aside.setText("")
+        self.details.setVisible(False)
         self.table.setRowCount(0)
+        self.table.setVisible(False)
 
     def show_portfolio(self, view: PortfolioView) -> None:
-        self.notice.setText(
+        self.notice.setVisible(False)
+        self.aside.setText(
             "Stored paper portfolio. These are not wallet balances, and a mark is not a fill."
         )
         self.summary.setText(portfolio_text(view))
+        self.details.setVisible(True)
+        self.table.setVisible(True)
         self.table.setRowCount(len(view.positions))
         for row_index, line in enumerate(view.positions):
             values = (

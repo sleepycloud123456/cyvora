@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     backup_files_kept: int = Field(default=7, ge=1, le=100)
     log_retention_days: int = Field(default=14, ge=1, le=3650)
     auth_failure_limit: int = Field(default=8, ge=3, le=50)
+    ui_animations: bool = True
 
     @field_validator("execution_mode", mode="before")
     @classmethod

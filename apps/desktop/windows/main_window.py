@@ -7,15 +7,15 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from apps.desktop.navigation import DASHBOARD, PAGES, SYSTEM_HEALTH, TERMINAL_PAGES
+from apps.desktop.components.emergency import EmergencyControls
+from apps.desktop.components.nav_rail import NavRail
+from apps.desktop.motion import PageStage, configure_motion, reveal
+from apps.desktop.navigation import CATALOG, DASHBOARD, SYSTEM_HEALTH, TERMINAL_PAGES
 from apps.desktop.pages.analyst_page import AnalystPage
 from apps.desktop.pages.analytics_page import AnalyticsPage
 from apps.desktop.pages.dashboard_page import DashboardPage
@@ -37,7 +37,7 @@ from apps.desktop.services.trading_worker import TradingLoadWorker
 from config.settings import Settings
 from domain.enums import ExecutionMode
 from domain.shield import ShieldNotice, ShieldSnapshot
-from domain.status import StatusSnapshot
+from domain.status import ComponentStatus, StatusSnapshot
 from domain.terminal import TerminalSnapshot
 from domain.trading import TradingSnapshot
 from intelligence.schedule import next_delay_seconds
@@ -68,6 +68,7 @@ class MainWindow(QMainWindow):
         self._reconnect_timer.timeout.connect(self._reconnect_probe)
         self.setWindowTitle("CYVORA Terminal")
         self.setMinimumSize(1100, 720)
+        configure_motion(settings.ui_animations)
         self._build()
         self._show_page(DASHBOARD)
         if start_probe:
@@ -93,50 +94,40 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(shell)
 
     def _build_sidebar(self) -> QWidget:
-        sidebar = QFrame()
-        sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(260)
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(16, 20, 16, 16)
-        layout.setSpacing(6)
-
-        brand = QLabel("CYVORA")
-        brand.setObjectName("BrandTitle")
-        slogan = QLabel("TRADE BEYOND LIMITS.")
-        slogan.setObjectName("Slogan")
-        self.mode_badge = QLabel(self._mode_text())
-        self.mode_badge.setObjectName("ModeBadge")
-        self.mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lock = QLabel("Live trading is locked")
-        lock.setObjectName("LockNote")
-
-        self.navigation = QListWidget()
-        self.navigation.setObjectName("Navigation")
-        self.navigation.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.navigation.setFrameShape(QFrame.Shape.NoFrame)
-        for name in PAGES:
-            QListWidgetItem(name, self.navigation)
-        self.navigation.currentTextChanged.connect(self._show_page)
-        self.navigation.setCurrentRow(0)
-
-        layout.addWidget(brand)
-        layout.addWidget(slogan)
-        layout.addSpacing(10)
-        layout.addWidget(self.mode_badge)
-        layout.addWidget(lock)
-        layout.addSpacing(8)
-        layout.addWidget(self.navigation, stretch=1)
-        return sidebar
+        self.navigation = NavRail(tuple(item for item in CATALOG if item.shown))
+        self.navigation.page_selected.connect(self.show_page)
+        return self.navigation
 
     def _build_content(self) -> QWidget:
         content = QFrame()
         content.setObjectName("Content")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(28, 22, 28, 22)
-        layout.setSpacing(8)
+        layout.setContentsMargins(40, 28, 44, 28)
+        layout.setSpacing(22)
+        header = QHBoxLayout()
+        header.setSpacing(24)
+        titles = QVBoxLayout()
+        titles.setSpacing(4)
         self.page_title = QLabel(DASHBOARD)
         self.page_title.setObjectName("PageTitle")
-        self.stack = QStackedWidget()
+        self.slogan = QLabel("TRADE BEYOND LIMITS.")
+        self.slogan.setObjectName("Slogan")
+        titles.addWidget(self.page_title)
+        titles.addWidget(self.slogan)
+        self.mode_badge = QLabel(self._mode_text())
+        self.mode_badge.setObjectName("ModeBadge")
+        self.mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mode_badge.setToolTip(
+            "Configured mode. Live trading is locked. "
+            "Changing READ_ONLY or PAPER is an environment change and a restart."
+        )
+        header.addLayout(titles)
+        header.addStretch(1)
+        self.emergency = EmergencyControls(compact=True)
+        header.addWidget(self.emergency, alignment=Qt.AlignmentFlag.AlignTop)
+        header.addWidget(self.mode_badge, alignment=Qt.AlignmentFlag.AlignTop)
+        self.stage = PageStage()
+        self.stack = self.stage.stack
         self.dashboard = DashboardPage()
         self.health = HealthPage(self._settings)
         self.placeholder = PlaceholderPage()
@@ -158,7 +149,9 @@ class MainWindow(QMainWindow):
         self.notifications = NotificationsPage()
         self.settings_page = SettingsPage()
         self.scanner.run_button.clicked.connect(self._start_cycle)
-        self.scanner.continuous.toggled.connect(self._continuous_toggled)
+        self.scanner.continuous.toggled.connect(self._scanner_repeat)
+        self.dashboard.run_cycle.clicked.connect(self._start_cycle)
+        self.dashboard.repeat_cycle.toggled.connect(self._dashboard_repeat)
         self.scanner.watch_add.connect(self._add_watch)
         self.scanner.watch_remove.connect(self._remove_watch)
         self.stack.addWidget(self.dashboard)
@@ -184,27 +177,54 @@ class MainWindow(QMainWindow):
         self.settings_page.resume_requested.connect(self._resume_entries)
         self.settings_page.kill_engage_requested.connect(self._engage_kill_switch)
         self.settings_page.kill_release_requested.connect(self._release_kill_switch)
-        layout.addWidget(self.page_title)
-        layout.addWidget(self.stack, stretch=1)
+        self.risk.controls.pause_requested.connect(self._pause_entries)
+        self.risk.controls.resume_requested.connect(self._resume_entries)
+        self.risk.controls.kill_engage_requested.connect(self._engage_kill_switch)
+        self.risk.controls.kill_release_requested.connect(self._release_kill_switch)
+        self.emergency.pause_requested.connect(self._pause_entries)
+        self.emergency.resume_requested.connect(self._resume_entries)
+        self.emergency.kill_engage_requested.connect(self._engage_kill_switch)
+        self.emergency.kill_release_requested.connect(self._release_kill_switch)
+        self.settings_page.set_motion(self._settings.ui_animations)
+        self.settings_page.motion_toggled.connect(self._apply_motion)
+        layout.addLayout(header)
+        layout.addWidget(self.stage, stretch=1)
         return content
+
+    def _apply_motion(self, enabled: bool) -> None:
+        configure_motion(enabled)
+        if enabled:
+            self.dashboard.hologram.sync()
+            return
+        self.dashboard.hologram.stop()
 
     def _mode_text(self) -> str:
         if self._settings.execution_mode is ExecutionMode.PAPER:
             return "PAPER"
         return "READ-ONLY"
 
+    def show_page(self, name: str) -> None:
+        """Open a catalog page. Hidden pages still open here; the rail does not list them."""
+
+        self._show_page(name)
+
     def _show_page(self, name: str) -> None:
         if not name:
             return
         self.page_title.setText(name)
+        self.navigation.mark(name)
+        widget = self._page_widget(name)
+        if widget is None:
+            self.placeholder.show_page(name)
+            widget = self.placeholder
+        reveal(self.stage, widget)
+        self._load_page(name)
+
+    def _page_widget(self, name: str) -> QWidget | None:
         if name == DASHBOARD:
-            self.stack.setCurrentWidget(self.dashboard)
-            self._show_cached_terminal()
-            self._load_terminal()
-            return
+            return self.dashboard
         if name == SYSTEM_HEALTH:
-            self.stack.setCurrentWidget(self.health)
-            return
+            return self.health
         radar = {
             "Live Scanner": self.scanner,
             "Trending Tokens": self.trending,
@@ -214,39 +234,58 @@ class MainWindow(QMainWindow):
             "Whale Tracker": self.whales,
         }.get(name)
         if radar is not None:
-            self.stack.setCurrentWidget(radar)
-            return
+            return radar
         trading = {
             "Open Positions": self.positions,
             "Trade History": self.orders,
             "Strategies": self.strategies,
         }.get(name)
         if trading is not None:
-            self.stack.setCurrentWidget(trading)
-            self._load_trading()
-            return
+            return trading
         if name == "Risk Management":
-            self.stack.setCurrentWidget(self.risk)
-            self._load_shield()
-            return
-        if name in {"Backtesting", "Paper Trading"}:
-            self.stack.setCurrentWidget(self.backtests if name == "Backtesting" else self.paper)
-            self._load_simulation()
-            return
-        terminal_page = {
-            "Portfolio": self.portfolio,
-            "Analytics": self.analytics,
-            "CYVORA Intelligence": self.analyst,
-            "Notifications": self.notifications,
-            "Settings": self.settings_page,
-        }.get(name)
-        if name in TERMINAL_PAGES and terminal_page is not None:
-            self.stack.setCurrentWidget(terminal_page)
+            return self.risk
+        if name == "Backtesting":
+            return self.backtests
+        if name == "Paper Trading":
+            return self.paper
+        if name in TERMINAL_PAGES:
+            return {
+                "Portfolio": self.portfolio,
+                "Analytics": self.analytics,
+                "CYVORA Intelligence": self.analyst,
+                "Notifications": self.notifications,
+                "Settings": self.settings_page,
+            }.get(name)
+        return None
+
+    def _load_page(self, name: str) -> None:
+        if name == DASHBOARD:
             self._show_cached_terminal()
             self._load_terminal()
             return
-        self.placeholder.show_page(name)
-        self.stack.setCurrentWidget(self.placeholder)
+        if name == SYSTEM_HEALTH:
+            return
+        if name in {
+            "Live Scanner",
+            "Trending Tokens",
+            "New Launches",
+            "Token Analysis",
+            "Smart Money",
+            "Whale Tracker",
+        }:
+            return
+        if name in {"Open Positions", "Trade History", "Strategies"}:
+            self._load_trading()
+            return
+        if name == "Risk Management":
+            self._load_shield()
+            return
+        if name in {"Backtesting", "Paper Trading"}:
+            self._load_simulation()
+            return
+        if name in TERMINAL_PAGES:
+            self._show_cached_terminal()
+            self._load_terminal()
 
     def start_probe(self) -> None:
         self.dashboard.set_checking()
@@ -262,6 +301,7 @@ class MainWindow(QMainWindow):
         self._status = snapshot
         self.dashboard.apply_snapshot(snapshot)
         self.health.apply_snapshot(snapshot)
+        self.risk.show_kill_switch(snapshot.kill_switch)
         self._schedule_reconnect()
         self._load_terminal()
 
@@ -270,6 +310,7 @@ class MainWindow(QMainWindow):
             return
         self.dashboard.show_probe_failure(message)
         self.health.show_probe_failure(message)
+        self.risk.show_kill_switch(ComponentStatus("unknown", message))
         self.health.note_reconnect()
         self._schedule_reconnect()
 
@@ -293,6 +334,7 @@ class MainWindow(QMainWindow):
         self._closing = True
         self._cycle_generation += 1
         self._reconnect_timer.stop()
+        self.dashboard.hologram.stop()
         probe = self._probe
         if probe is not None and probe.isRunning():
             probe.requestInterruption()
@@ -394,6 +436,7 @@ class MainWindow(QMainWindow):
     def _radar_message(self, text: str) -> None:
         for page in self._radar_pages():
             page.show_message(text)
+        self.dashboard.show_radar_status(text)
 
     def _load_radar(self) -> None:
         if not self._settings.database_url:
@@ -418,15 +461,14 @@ class MainWindow(QMainWindow):
         if generation is not None and generation != self._cycle_generation:
             return
         if not self._settings.database_url:
-            self.scanner.show_message("Radar storage is not configured. The cycle was not started.")
+            self._radar_notice("Radar storage is not configured. The cycle was not started.")
             return
         if self._settings.gmgn_api_key is None:
-            self.scanner.show_message("GMGN_API_KEY is not set. The cycle was not started.")
+            self._radar_notice("GMGN_API_KEY is not set. The cycle was not started.")
             return
         if self._radar_cycle is not None and self._radar_cycle.isRunning():
             return
-        for page in self._radar_pages():
-            page.set_running(True)
+        self._set_cycle_running(True)
         self._radar_cycle = RadarCycleWorker(self._settings)
         self._radar_cycle.finished_ok.connect(self._cycle_finished)
         self._radar_cycle.failed.connect(self._cycle_failed)
@@ -435,20 +477,39 @@ class MainWindow(QMainWindow):
     def _cycle_finished(self, message: str) -> None:
         if self._closing:
             return
-        for page in self._radar_pages():
-            page.set_running(False)
-        self.scanner.show_message(message)
+        self._set_cycle_running(False)
+        self._radar_notice(message)
         self._load_radar()
         self._schedule_next()
 
     def _cycle_failed(self, message: str) -> None:
         if self._closing:
             return
-        for page in self._radar_pages():
-            page.set_running(False)
-        self.scanner.show_message(message)
+        self._set_cycle_running(False)
+        self._radar_notice(message)
         self._load_radar()
         self._schedule_next()
+
+    def _set_cycle_running(self, running: bool) -> None:
+        for page in self._radar_pages():
+            page.set_running(running)
+        self.dashboard.set_cycle_running(running)
+
+    def _radar_notice(self, text: str) -> None:
+        self.scanner.show_message(text)
+        self.dashboard.show_radar_status(text)
+
+    def _dashboard_repeat(self, checked: bool) -> None:
+        if self.scanner.continuous.isChecked() != checked:
+            self.scanner.continuous.setChecked(checked)
+
+    def _scanner_repeat(self, checked: bool) -> None:
+        self._continuous_toggled(checked)
+        box = self.dashboard.repeat_cycle
+        if box.isChecked() != checked:
+            box.blockSignals(True)
+            box.setChecked(checked)
+            box.blockSignals(False)
 
     def _schedule_next(self) -> None:
         worker = self._radar_cycle
@@ -508,6 +569,10 @@ class MainWindow(QMainWindow):
         self.analyst.show_report(snapshot.analyst)
         self.notifications.show_notifications(snapshot.notifications)
         self.settings_page.show_snapshot(snapshot)
+        self.risk.show_entry_state(
+            halted=snapshot.settings.halt_entries,
+            breach=snapshot.settings.breach_latched,
+        )
         self.positions.show_position_lines(snapshot.portfolio.positions)
         self.strategies.show_performance(
             "Closed paper campaigns are listed on Analytics. "
@@ -540,15 +605,15 @@ class MainWindow(QMainWindow):
 
     def _terminal_action_for(self, action: str, payload: object) -> None:
         if not self._settings.database_url:
-            self._terminal_message(
-                "Terminal storage is not configured. No paper portfolio is shown."
-            )
+            message = "Terminal storage is not configured. No paper portfolio is shown."
+            self._terminal_message(message)
+            self.risk.show_action(message)
             return
         if self._terminal_action is not None and self._terminal_action.isRunning():
             return
         self._terminal_action = TerminalActionWorker(self._settings, action, payload)
         self._terminal_action.finished_ok.connect(self._terminal_action_finished)
-        self._terminal_action.failed.connect(self.settings_page.show_message)
+        self._terminal_action.failed.connect(self._terminal_action_failed)
         self._terminal_action.start()
 
     def _terminal_action_finished(self, message: str) -> None:
@@ -556,8 +621,16 @@ class MainWindow(QMainWindow):
             return
         self.settings_page.show_message(message)
         self.strategies.show_message(message)
+        self.risk.show_action(message)
         self._load_terminal()
         self._load_trading()
+        self._load_shield()
+
+    def _terminal_action_failed(self, message: str) -> None:
+        if self._closing:
+            return
+        self.settings_page.show_message(message)
+        self.risk.show_action(message)
 
     def _start_strategy(self, strategy_id: str) -> None:
         self._terminal_action_for("start", strategy_id)

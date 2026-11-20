@@ -7,6 +7,7 @@ from decimal import Decimal
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from apps.desktop.components.disclosure import DetailDisclosure
 from domain.terminal import PositionLine
 from domain.trading import OrderRecord, PositionRecord, TradingSnapshot
 from intelligence.numbers import format_decimal
@@ -48,9 +50,10 @@ class TradingPage(QWidget):
         super().__init__()
         self.kind = kind
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(16)
         self.notice = QLabel()
-        self.notice.setObjectName("Notice")
+        self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
         headers = _COLUMNS[kind]
         self.table = QTableWidget(0, len(headers))
@@ -58,13 +61,24 @@ class TradingPage(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(40)
+        self.table.setShowGrid(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.performance = QLabel("")
         self.performance.setObjectName("Notice")
         self.performance.setWordWrap(True)
+        self.detail = QLabel("")
+        self.detail.setObjectName("Notice")
+        self.detail.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.detail)
+        self.details.add(self.performance)
         layout.addWidget(self.notice)
         self.strategy_id: QLineEdit | None = None
         if kind == "strategies":
             controls = QHBoxLayout()
+            controls.setSpacing(12)
             self.strategy_id = QLineEdit()
             self.strategy_id.setPlaceholderText("Registered strategy id")
             start = QPushButton("Start")
@@ -73,14 +87,14 @@ class TradingPage(QWidget):
             stop.setObjectName("SecondaryButton")
             start.clicked.connect(self._emit_start)
             stop.clicked.connect(self._emit_stop)
-            controls.addWidget(self.strategy_id)
+            controls.addWidget(self.strategy_id, stretch=1)
             controls.addWidget(start)
             controls.addWidget(stop)
             layout.addLayout(controls)
             self.performance.setText(
                 "Start and stop change the paper registry only. Neither submits an order."
             )
-        layout.addWidget(self.performance)
+        layout.addWidget(self.details)
         layout.addWidget(self.table, stretch=1)
         self.show_message("Trading storage has not been read.")
 
@@ -93,10 +107,13 @@ class TradingPage(QWidget):
         if not lines:
             self.show_message("No simulated positions are stored.")
             return
-        self.notice.setText(
+        self.notice.setVisible(False)
+        self.table.setVisible(True)
+        self.detail.setText(
             "Open paper positions with stored marks and Shield plans. "
             "A mark is not a fill. A planned stop is not a guaranteed exit."
         )
+        self.details.setVisible(True)
         headers = (
             "Token",
             "Quantity",
@@ -146,7 +163,11 @@ class TradingPage(QWidget):
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+        self.notice.setVisible(True)
+        self.detail.setText("")
+        self.details.setVisible(self.performance.text() != "")
         self.table.setRowCount(0)
+        self.table.setVisible(False)
 
     def show_snapshot(self, snapshot: TradingSnapshot) -> None:
         headers = _COLUMNS[self.kind]
@@ -167,10 +188,13 @@ class TradingPage(QWidget):
         if not rows:
             self.show_message(empty)
             return
-        self.notice.setText(
+        self.notice.setVisible(False)
+        self.detail.setText(
             "Simulated paper records stored by CYVORA. "
             "These are not wallet balances or chain transactions."
         )
+        self.details.setVisible(True)
+        self.table.setVisible(True)
         self.table.setRowCount(len(rows))
         for row_index, values in enumerate(rows):
             for column, value in enumerate(values):

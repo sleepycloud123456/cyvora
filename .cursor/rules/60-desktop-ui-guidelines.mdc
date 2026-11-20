@@ -6,8 +6,10 @@ alwaysApply: false
 
 # Desktop UI
 
-- Keep colors in `apps/desktop/themes/cyvora.qss`. Surfaces are navy and near-black. Accents are cyan `#22D3EE` and turquoise `#2DD4BF`.
+- Keep colors in `apps/desktop/themes/cyvora.qss`. Surfaces are black `#000000`. The accent is neon purple `#C084FC` and `#A855F7`. Text stays high contrast.
+- The sidebar is the icon rail from `apps.desktop.navigation.CATALOG`. `PAGES` is the visible order. Hidden entries stay in the catalog with `shown` false.
 - The brand is `CYVORA`. The slogan is `TRADE BEYOND LIMITS.`
+- The configured mode is the header badge. `CYVORA_UI_ANIMATIONS=false` stops the hologram timer, page fades, and hover motion. The Settings checkbox applies that flag for the session only.
 - A page with no stored rows says so. Do not fill it with invented prices, balances, or win rates.
 - Portfolio, analytics, positions, and strategies show stored paper rows or an empty state. A missing mark stays missing.
 - Run network and database checks on workers, not on the UI thread.
