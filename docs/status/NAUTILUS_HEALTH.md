@@ -30,4 +30,4 @@ The code changes in this follow-up are the local security items, not a Nautilus 
 - The live Nautilus trading node was not started. There is no live data client and no live execution client.
 - The pair is a synthetic spot instrument. A fill is not a Solana swap and not a signed transaction.
 - Prices wider than 9 decimal places are not loaded into this Nautilus wheel.
-- `fsspec` stays at 2026.2.0 because NautilusTrader 1.231.0 requires that exact version. Moving it to the patched 2026.6.0 does not resolve. CYVORA does not call the affected filesystem API.
+- `fsspec` is overridden to a release at or after 2026.6.0. NautilusTrader 1.231.0 still requires 2026.2.0 in its own metadata. CYVORA does not open a reference filesystem. The paper health check covers the override.

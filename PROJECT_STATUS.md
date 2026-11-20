@@ -1,6 +1,6 @@
 # Project status
 
-Date: 2026-11-11.
+Date: 2026-11-18.
 
 ## Current phase
 
@@ -32,6 +32,16 @@ Nothing inside Phase 9. A paper-only Nautilus health check and two local securit
 None for the readiness boundary. Live trading is still disabled. The report, a paper approval, a profile, an analyst finding, and a released kill switch do not enable it. The GMGN key is still not bound to a wallet. Holdings, swaps, and wallet activity stay refused. There is no Solana RPC client. Telegram delivery is not configured. A persistent Windows task and any cloud host still need a separate authorization from the user.
 
 ## Tests
+
+Recorded on 2026-11-20 after merging the terminal redesign into the CI branch:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 155 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. `CYVORA_TEST_DATABASE_URL` pointed at a disposable PostgreSQL 17 database, so the Alembic round-trip and the paper order, idempotency, and recovery tests ran.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with mode `READ-ONLY`, database `reachable`, backend offline, and GMGN not configured. The purple icon rail and header controls stayed in place.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- Live trading stayed disabled.
 
 Recorded on 2026-11-18 after moving the paper controls onto the header, Risk Management, and the Dashboard:
 
@@ -74,12 +84,23 @@ Recorded on 2026-11-11 after the Nautilus health follow-up:
 - The loaded execution mode is `READ_ONLY`. The kill switch state word is `released`. Neither was changed. No operator paper order was inserted.
 - `fsspec==2026.6.0` does not resolve with `nautilus-trader==1.231.0`. The lock was not changed.
 
+Recorded on 2026-11-18 after the CI regression gate:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 151 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. `CYVORA_TEST_DATABASE_URL` pointed at a disposable PostgreSQL 17 database, so the Alembic upgrade/downgrade round-trip and the paper order, idempotency, and recovery tests ran.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK`. With the disposable database URL configured, the line reported mode `READ-ONLY`, database `reachable`, backend offline, and GMGN not configured.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- `uv run python -m trading.nautilus.health` passed import, backtest-node shutdown, instrument fill, Shield paper PnL, kill-switch refusal, and a three-bar backtest.
+- The smoke execution mode was `READ-ONLY`. Live trading stayed disabled. No operator paper order was inserted into an operator database.
+
 No API key or database URL is printed.
 
 ## Known limitations
 
 - Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor does not call GMGN unless `--include-radar` is set.
-- `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. Replacing it with 2026.6.0 does not resolve. CYVORA does not open a reference filesystem.
+- NautilusTrader 1.231.0 metadata still requires `fsspec==2026.2.0`. The lock overrides that pin and resolves `fsspec` 2026.9.0, which closes PYSEC-2026-4217. CYVORA does not open a reference filesystem.
 - The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The configured mode is `READ_ONLY`, so the API refuses to store a paper order until the mode is `PAPER`.
 - No simulation dataset is stored, so the short backtest used a three-bar series in the stored-bar shape. It did not write a run.
 - `/health` without a token returns `{"status": "live"}` only. The detailed body requires the local token.
