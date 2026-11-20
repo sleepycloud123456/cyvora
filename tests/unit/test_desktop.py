@@ -6,6 +6,12 @@ import time
 from pathlib import Path
 
 from apps.desktop.app import load_stylesheet
+from apps.desktop.components.emergency import (
+    ENGAGE_PROMPT,
+    PAUSE_PROMPT,
+    RELEASE_PROMPT,
+    RESUME_PROMPT,
+)
 from apps.desktop.components.hologram import Hologram
 from apps.desktop.navigation import CATALOG, HIDDEN_PAGES, PAGES
 from apps.desktop.windows.main_window import MainWindow
@@ -77,6 +83,19 @@ def test_shell_labels_placeholders(qtbot) -> None:  # type: ignore[no-untyped-de
     assert window.settings_page.telegram.isEnabled() is False
     assert window.settings_page.telegram.isChecked() is False
     assert window.settings_page.motion.isChecked() is True
+    assert window.emergency.pause.text() == "Pause"
+    assert window.emergency.kill_engage.text() == "Kill"
+    assert window.emergency.kill_engage.toolTip() == "Engage kill switch"
+    assert window.risk.kill_engage.text() == "Engage kill switch"
+    assert window.risk.kill_release.text() == "Release kill switch"
+    assert window.risk.pause.text() == "Pause new entries"
+    assert window.risk.resume.text() == "Resume paper entries"
+    assert window.dashboard.run_cycle.text().startswith("Run one read-only")
+    assert window.dashboard.repeat_cycle.text() == "Repeat on the configured interval"
+    window.dashboard.repeat_cycle.setChecked(True)
+    assert window.scanner.continuous.isChecked() is True
+    window.scanner.continuous.setChecked(False)
+    assert window.dashboard.repeat_cycle.isChecked() is False
     window.placeholder.show_page("Unknown")
     assert "Placeholder" in window.placeholder.body.text()
     window.navigation.button("Risk Management").click()
@@ -128,6 +147,17 @@ def test_snapshot_updates_cards_without_market_data(qtbot) -> None:  # type: ign
     assert window.dashboard.gmgn_card.state_label.text() == "not_configured"
     theme = Path(__file__).resolve().parents[2] / "apps" / "desktop" / "themes" / "cyvora.qss"
     assert theme.is_file()
+
+
+def test_emergency_prompts_keep_the_live_trading_lock() -> None:
+    assert "does not submit an order" in PAUSE_PROMPT
+    assert "does not enable live trading" in PAUSE_PROMPT
+    assert "Live trading stays locked" in RESUME_PROMPT
+    assert "does not submit an order" in ENGAGE_PROMPT
+    assert "does not flatten a position" in ENGAGE_PROMPT
+    assert "does not enable live trading" in ENGAGE_PROMPT
+    assert "does not release this switch" in ENGAGE_PROMPT
+    assert "Live trading stays locked" in RELEASE_PROMPT
 
 
 def test_motion_flag_stops_the_hologram(qtbot) -> None:  # type: ignore[no-untyped-def]

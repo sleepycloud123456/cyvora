@@ -237,9 +237,7 @@ def _mints_to_refresh(
             needed.append(position.mint)
         if len(needed) >= limit:
             return tuple(needed)
-    for candidate in sorted(
-        candidates, key=lambda item: (-(item.score or Decimal(-1)), item.mint)
-    ):
+    for candidate in sorted(candidates, key=lambda item: (-(item.score or Decimal(-1)), item.mint)):
         if candidate.mint in needed:
             continue
         needed.append(candidate.mint)

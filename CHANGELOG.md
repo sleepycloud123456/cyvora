@@ -13,9 +13,15 @@
 ## 0.9.3 — 2026-11-18 — Historical data, paper pages, and a strategy runner
 
 - Added CSV, Parquet, stored-radar, GMGN kline, and supplied-adapter imports. Quote volume stays volume. It is not executable depth. Quality reports record gaps, staleness, outliers, and whether a bar has reserves or displayed depth.
-- Removed the 400-bar and 4-mint research caps. One request can hold 50,000 bars and 512 mints, stored in batches. PostgreSQL revision `0009_historical_pipeline` keeps quality, collection, and paper-strategy audit rows. Live flags stay false.
+- Removed the 400-bar and 4-mint research caps. One request can hold 50,000 bars and 512 mints, stored in batches. PostgreSQL revision `0009_historical_pipeline` revises `0008_readiness` and keeps quality, collection, and paper-strategy audit rows. Live flags stay false.
 - Replaced the Paper Trading and Backtesting placeholders with dataset selection, import, strategy parameters, Run, stored equity, drawdown, trades, and comparisons. Manual paper entry is enabled only in `PAPER` mode and calls the simulation routes.
 - Starting a strategy now asks the supervisor to evaluate it. Orders go through Shield, idempotency, the kill switch, and the recovery block. The active profile signal threshold gates entries. Rate and size limits cannot be raised by strategy parameters. Every evaluation is audited. Live trading stays locked.
+
+## 0.9.2 — 2026-11-18 — CI regression gate
+
+- Added a GitHub Actions workflow that runs Ruff, mypy, pytest, pip-audit, and an offscreen desktop smoke launch on `ubuntu-latest` and `windows-latest`. PostgreSQL 17 is a service on Ubuntu and the Windows runner install.
+- Replaced the migration source-string checks and the connectivity-only database test with Alembic upgrade/downgrade round-trips and paper order, idempotency, and recovery checks against that database.
+- Overrode the NautilusTrader 1.231.0 pin `fsspec==2026.2.0` with `fsspec>=2026.6.0`. The lock resolved `fsspec` 2026.9.0, which closes PYSEC-2026-4217. NautilusTrader stays 1.231.0. The `2.0.0` release candidates stay unused. Live trading stays disabled.
 
 ## 0.9.2 — 2026-11-11 — Terminal visual redesign
 
@@ -23,6 +29,7 @@
 - The rail lists Dashboard, Open Positions, Trade History, Paper Trading, Strategies, Backtesting, Risk Management, Analytics, Notifications, and System Health. Radar, Portfolio, CYVORA Intelligence, and Settings stay in `navigation.CATALOG` with `shown` false. Their widgets remain.
 - The header shows `READ-ONLY` or `PAPER`. Live trading stays locked. No control on the desktop can enable it.
 - Added a dashboard hologram, page fades, and icon glow. `CYVORA_UI_ANIMATIONS=false` stops that motion at startup. The Settings checkbox applies the same flag for the session and does not write the environment.
+- Moved pause, resume, and the kill switch onto the header and Risk Management. The Dashboard starts the same read-only radar cycle. The confirmations are unchanged. Live trading stays locked.
 
 ## 0.9.1 — 2026-11-11 — Nautilus health and local auth follow-up
 

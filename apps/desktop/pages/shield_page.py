@@ -5,7 +5,9 @@ from __future__ import annotations
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from apps.desktop.components.disclosure import DetailDisclosure
+from apps.desktop.components.emergency import EmergencyControls
 from domain.shield import ShieldNotice, ShieldSnapshot
+from domain.status import ComponentStatus
 from intelligence.numbers import format_decimal
 
 
@@ -20,6 +22,20 @@ class ShieldPage(QWidget):
         self.notice = QLabel()
         self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
+        self.controls = EmergencyControls()
+        self.pause = self.controls.pause
+        self.resume = self.controls.resume
+        self.kill_engage = self.controls.kill_engage
+        self.kill_release = self.controls.kill_release
+        self.entry_state = QLabel("Entry posture has not been read.")
+        self.entry_state.setObjectName("EmptyState")
+        self.entry_state.setWordWrap(True)
+        self.latch = QLabel("Kill switch has not been read.")
+        self.latch.setObjectName("EmptyState")
+        self.latch.setWordWrap(True)
+        self.action_note = QLabel("")
+        self.action_note.setObjectName("EmptyState")
+        self.action_note.setWordWrap(True)
         self.headline = QLabel("")
         self.headline.setObjectName("Headline")
         self.headline.setWordWrap(True)
@@ -36,6 +52,10 @@ class ShieldPage(QWidget):
         self.details = DetailDisclosure("Details")
         self.details.add(self.aside)
         self.details.add(self.body)
+        layout.addWidget(self.controls)
+        layout.addWidget(self.entry_state)
+        layout.addWidget(self.latch)
+        layout.addWidget(self.action_note)
         layout.addWidget(self.notice)
         layout.addWidget(self.headline)
         layout.addWidget(self.details)
@@ -49,6 +69,21 @@ class ShieldPage(QWidget):
         self.headline.setVisible(False)
         self.body.setText("")
         self.details.setVisible(False)
+
+    def show_action(self, text: str) -> None:
+        self.action_note.setText(text)
+
+    def show_entry_state(self, *, halted: bool, breach: bool) -> None:
+        if breach:
+            text = "Entries paused. A breach is latched. Resume does not clear a breach."
+        elif halted:
+            text = "New paper entries are paused."
+        else:
+            text = "Shield evaluates new paper entries."
+        self.entry_state.setText(text)
+
+    def show_kill_switch(self, status: ComponentStatus) -> None:
+        self.latch.setText(f"Kill switch: {status.state}. {status.detail}")
 
     def show_snapshot(self, snapshot: ShieldSnapshot, notices: tuple[ShieldNotice, ...]) -> None:
         text = _lines(snapshot, notices)

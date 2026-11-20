@@ -14,9 +14,7 @@ down_revision: str | None = "0011_worker_kinds"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-_ACTIONS = (
-    "action IN ('submitted', 'refused', 'blocked', 'held', 'duplicate', 'skipped', 'exited')"
-)
+_ACTIONS = "action IN ('submitted', 'refused', 'blocked', 'held', 'duplicate', 'skipped', 'exited')"
 _PREVIOUS = "action IN ('submitted', 'refused', 'blocked', 'held', 'duplicate', 'skipped')"
 
 

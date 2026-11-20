@@ -25,7 +25,7 @@ from domain.paper_trader import (
 )
 from domain.shield import PAPER_APPROVED, CampaignRecord
 from domain.simulation import FeeSchedule, HistoricalBar, LatencyModel
-from domain.trading import OrderRecord, OrderSide, SolanaInstrument
+from domain.trading import OrderRecord, OrderSide, PositionRecord, SolanaInstrument
 from shield.numbers import quantize_down
 from trading.execution.gateway import PaperExecutionGateway
 from trading.instruments import require_mint, require_symbol
@@ -390,11 +390,7 @@ def _writeoffs(
             )
             continue
         order = result.order
-        if (
-            order is None
-            or order.shield_decision != PAPER_APPROVED
-            or order.filled_quantity <= 0
-        ):
+        if order is None or order.shield_decision != PAPER_APPROVED or order.filled_quantity <= 0:
             reason = result.refusal
             if reason is None and order is not None:
                 reason = order.reason
@@ -423,7 +419,7 @@ def _writeoffs(
 
 
 def _writeoff_due(
-    position: object,
+    position: PositionRecord,
     store: TradingStore,
     quotes: dict[str, PoolQuote],
     now: datetime,
@@ -441,7 +437,7 @@ def _writeoff_due(
 
 
 def _last_priced(
-    position: object,
+    position: PositionRecord,
     store: TradingStore,
     last_priced_at: Mapping[str, datetime],
 ) -> datetime | None:

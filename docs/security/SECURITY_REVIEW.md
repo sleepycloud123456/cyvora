@@ -25,7 +25,11 @@ These items did not need an operator decision. Live trading was not enabled, and
 |---|---|---|
 | Authentication failures | The failure count lived in the process. A restart cleared it. | On startup the API reloads rejected `auth_events` from the last 60 seconds that are still after the latest acceptance. The token is still not stored. |
 | Detailed health | `/health` had no bearer token and returned the kill-switch word. | A request with no `Authorization` header returns `{"status": "live"}` only. The previous detailed body requires the local token. A valid detailed health call does not clear the failure window. The desktop probe sends the token when one is configured. |
-| `fsspec` | PYSEC-2026-4217 is fixed in 2026.6.0. | The installed NautilusTrader 1.231.0 metadata requires `fsspec==2026.2.0`. A resolution of `nautilus-trader==1.231.0` plus `fsspec==2026.6.0` is unsatisfiable. The lock was not changed. CYVORA does not call the affected API. |
+| `fsspec` | PYSEC-2026-4217 is fixed in 2026.6.0. | The installed NautilusTrader 1.231.0 metadata requires `fsspec==2026.2.0`. A resolution of `nautilus-trader==1.231.0` plus `fsspec==2026.6.0` is unsatisfiable without an override. See the 2026-11-18 follow-up. |
+
+## Follow-up on 2026-11-18
+
+PyPI still has no `2.0.0` final. The `2.0.0rc*` builds stay unused. NautilusTrader stays 1.231.0. `[tool.uv] override-dependencies` requires `fsspec>=2026.6.0`, and the lock resolved 2026.9.0. That range starts at the release that fixes PYSEC-2026-4217. The paper health check and pytest cover that resolution. `pip-audit` runs in GitHub Actions. CYVORA still does not open a reference filesystem. Live trading was not enabled.
 
 ## Findings left open
 
@@ -36,7 +40,6 @@ These are accepted for this phase or they need a decision from the operator. The
 - `database_url` remains a string inside the process so SQLAlchemy can open it. Code that interpolates that attribute into a log line would publish the password. The CYVORA logger redacts a configured password of at least eight characters and redacts `postgresql://user:password@` text. A shorter password is still covered by the URL pattern.
 - An isolated backtest uses an in-memory ledger and does not consult the kill switch. It does not write the operator paper book.
 - There is no Solana RPC client, no chain simulation, no chain confirmation, and no wallet balance read. Those are gaps in the readiness report, not missing bugfixes to invent in this phase.
-- `fsspec` 2026.2.0, PYSEC-2026-4217, remains. The follow-up above re-checked the pin and did not bump it. CYVORA does not import `fsspec` or open a reference filesystem.
 - A backup still requires PostgreSQL under Program Files. A custom install path is reported as `tool_missing` instead of executing an untrusted binary.
 - GitHub issues and the wiki are enabled on the public repository. Do not put secrets in either. `SECURITY.md` says that.
 

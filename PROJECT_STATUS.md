@@ -12,9 +12,9 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## Completed work
 
-- Autonomous paper trader on 2026-11-19. `--paper-trader` runs the existing read-only radar cycle, filters candidates, and submits entries and exits through Shield and the paper gateway. The virtual bankroll defaults to 10 SOL. Revisions `0010_paper_trader` and `0011_worker_kinds`. The dashboard shows status, open positions, recent paper trades, virtual equity, and the decision log. Live trading stays locked. Nautilus fills stay inside the engine.
-- Historical import, quality reports, Paper Trading and Backtesting controls, and a supervised paper strategy runner on 2026-11-18. Live trading stays locked. Candle volume is not executable depth. The runner uses Shield, idempotency, the kill switch, and the active profile signal threshold.
-- Terminal visual redesign on 2026-11-11. Black surfaces, a purple accent, an icon rail, compact pages, and a dashboard hologram. Live trading stays locked. Radar, Portfolio, CYVORA Intelligence, and Settings remain in the navigation catalog and are not on the rail.
+- Autonomous paper trader on 2026-11-19. `--paper-trader` runs the existing read-only radar cycle, filters candidates, and submits entries and exits through Shield and the paper gateway. The virtual bankroll defaults to 10 SOL. Revisions `0010_paper_trader`, `0011_worker_kinds`, and `0012_paper_trader_exited` follow `0009_historical_pipeline`. The dashboard shows status, open positions, recent paper trades, virtual equity, and the decision log. Live trading stays locked. Nautilus fills stay inside the engine.
+- Historical import, quality reports, Paper Trading and Backtesting controls, and a supervised paper strategy runner on 2026-11-18. Live trading stays locked. Candle volume is not executable depth. The runner uses Shield, idempotency, the kill switch, and the active profile signal threshold. Revision `0009_historical_pipeline` revises `0008_readiness`.
+- Terminal visual redesign on 2026-11-11. Black surfaces, a purple accent, an icon rail, compact pages, and a dashboard hologram. Live trading stays locked. Radar, Portfolio, CYVORA Intelligence, and Settings remain in the navigation catalog and are not on the rail. Pause, resume, and the kill switch are on the header and Risk Management. The Dashboard starts the same read-only radar cycle.
 - Phase 1 foundation, merged as PR #1.
 - Phase 2 read-only GMGN client, merged as PR #2 (`4c48ad7`).
 - Phase 3 radar cycle, merged as PR #3 (`e9ffb3c`).
@@ -48,14 +48,33 @@ Recorded on 2026-11-19 after the autonomous paper trader:
 - A free-plan GMGN 429 on `token_top_holders` stopped the remainder of each cycle. The calls that succeeded were still stored. The trader did not add a second radar cycle.
 - A follow-up on the same branch also accepts lifecycle `ranked` when security is `APPROVED_FOR_FURTHER_ANALYSIS`. Shield still decides the order. `watch_suggested` remains eligible.
 
-Recorded on 2026-11-18 after the historical pipeline, research pages, and paper strategy runner:
+Recorded on 2026-11-20 after merging main into the historical pipeline branch:
 
 - `uv run ruff check .` passed.
 - `uv run ruff format --check .` passed.
 - `uv run mypy` passed.
-- `uv run pytest` — 167 passed, 3 skipped. The skips are the opt-in GMGN and radar live smokes, and the PostgreSQL connectivity check because `CYVORA_DATABASE_URL` was unset in that run.
-- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database not configured, backend offline, and GMGN not configured.
-- The smoke mode was `READ_ONLY`. Live trading stayed disabled. No operator paper order was inserted. No GMGN request was sent.
+- `uv run pytest` — 162 passed, 5 skipped. The skips are the opt-in GMGN and radar live smokes, and the three PostgreSQL regression tests because `CYVORA_TEST_DATABASE_URL` was unset in that run.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with mode `READ-ONLY`, database not configured, backend offline, and GMGN not configured.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- Live trading stayed disabled. The header, Risk Management, and Dashboard controls from main stayed in place. Revision `0009_historical_pipeline` still revises `0008_readiness`.
+
+Recorded on 2026-11-20 after merging the terminal redesign into the CI branch:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 155 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. `CYVORA_TEST_DATABASE_URL` pointed at a disposable PostgreSQL 17 database, so the Alembic round-trip and the paper order, idempotency, and recovery tests ran.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with mode `READ-ONLY`, database `reachable`, backend offline, and GMGN not configured. The purple icon rail and header controls stayed in place.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- Live trading stayed disabled.
+
+Recorded on 2026-11-18 after moving the paper controls onto the header, Risk Management, and the Dashboard:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 157 passed, 3 skipped. The skips are the opt-in GMGN and radar live smokes, and the PostgreSQL connectivity check because `CYVORA_DATABASE_URL` was unset in that run.
+- Live trading stayed disabled. The pause, resume, and kill-switch prompts are unchanged.
 
 Recorded on 2026-11-11 after the terminal visual redesign:
 
@@ -90,12 +109,23 @@ Recorded on 2026-11-11 after the Nautilus health follow-up:
 - The loaded execution mode is `READ_ONLY`. The kill switch state word is `released`. Neither was changed. No operator paper order was inserted.
 - `fsspec==2026.6.0` does not resolve with `nautilus-trader==1.231.0`. The lock was not changed.
 
+Recorded on 2026-11-18 after the CI regression gate:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 151 passed, 2 skipped. The skips are the opt-in GMGN and radar live smokes. `CYVORA_TEST_DATABASE_URL` pointed at a disposable PostgreSQL 17 database, so the Alembic upgrade/downgrade round-trip and the paper order, idempotency, and recovery tests ran.
+- `QT_QPA_PLATFORM=offscreen uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK`. With the disposable database URL configured, the line reported mode `READ-ONLY`, database `reachable`, backend offline, and GMGN not configured.
+- `uv run pip-audit --skip-editable` reported no known vulnerabilities. The lock resolved `fsspec` 2026.9.0. NautilusTrader stayed 1.231.0.
+- `uv run python -m trading.nautilus.health` passed import, backtest-node shutdown, instrument fill, Shield paper PnL, kill-switch refusal, and a three-bar backtest.
+- The smoke execution mode was `READ-ONLY`. Live trading stayed disabled. No operator paper order was inserted into an operator database.
+
 No API key or database URL is printed.
 
 ## Known limitations
 
 - Cloudflare still blocks the Python TLS stack for `openapi.gmgn.ai` on this PC. Live GMGN calls use Windows `curl.exe`. The rate limiter is unchanged. The supervisor calls GMGN only when `--include-radar` or `--paper-trader` is set, and that is one cycle per tick. A free-plan 429 stops the rest of that cycle.
-- `fsspec==2026.2.0` is required by NautilusTrader 1.231.0. Replacing it with 2026.6.0 does not resolve. CYVORA does not open a reference filesystem.
+- NautilusTrader 1.231.0 metadata still requires `fsspec==2026.2.0`. The lock overrides that pin and resolves `fsspec` 2026.9.0, which closes PYSEC-2026-4217. CYVORA does not open a reference filesystem.
 - The Nautilus backtest engine and the operator paper book are separate. Shield fills the CYVORA book. Nautilus fills stay inside the engine. The autonomous paper trader does not copy those fills. It submits only when the loaded mode is `PAPER`. `READ_ONLY` stores a skipped pass and no order.
 - No simulation dataset was stored in the smoke run, so that run did not write a backtest. A dataset can be imported when PostgreSQL and the local API are configured.
 - `/health` without a token returns `{"status": "live"}` only. The detailed body requires the local token.

@@ -9,13 +9,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from apps.desktop.components.emergency import EmergencyControls
 from domain.exceptions import CyvoraError
 from domain.terminal import CRITICAL_NOTIFICATIONS, NotificationCategory, TerminalSnapshot
 from terminal.profiles import normalize_preferences
@@ -83,18 +83,15 @@ class SettingsPage(QWidget):
         )
         self.profile_note.setObjectName("Notice")
         self.profile_note.setWordWrap(True)
-        self.pause = QPushButton("Pause new entries")
-        self.pause.setObjectName("DangerButton")
-        self.pause.clicked.connect(self._pause)
-        self.resume = QPushButton("Resume paper entries")
-        self.resume.setObjectName("SecondaryButton")
-        self.resume.clicked.connect(self._resume)
-        self.kill_engage = QPushButton("Engage kill switch")
-        self.kill_engage.setObjectName("DangerButton")
-        self.kill_engage.clicked.connect(self._engage_kill)
-        self.kill_release = QPushButton("Release kill switch")
-        self.kill_release.setObjectName("SecondaryButton")
-        self.kill_release.clicked.connect(self._release_kill)
+        self.controls = EmergencyControls()
+        self.pause = self.controls.pause
+        self.resume = self.controls.resume
+        self.kill_engage = self.controls.kill_engage
+        self.kill_release = self.controls.kill_release
+        self.controls.pause_requested.connect(self.pause_requested.emit)
+        self.controls.resume_requested.connect(self.resume_requested.emit)
+        self.controls.kill_engage_requested.connect(self.kill_engage_requested.emit)
+        self.controls.kill_release_requested.connect(self.kill_release_requested.emit)
         self.categories: dict[str, QCheckBox] = {}
         category_row = QVBoxLayout()
         for category in NotificationCategory:
@@ -132,10 +129,7 @@ class SettingsPage(QWidget):
         layout.addWidget(self.profile_threshold)
         layout.addWidget(self.save_profile)
         layout.addWidget(self.profile_note)
-        layout.addWidget(self.pause)
-        layout.addWidget(self.resume)
-        layout.addWidget(self.kill_engage)
-        layout.addWidget(self.kill_release)
+        layout.addWidget(self.controls)
         layout.addLayout(category_row)
         layout.addWidget(self.quiet_enabled)
         layout.addWidget(self.quiet_start)
@@ -201,45 +195,6 @@ class SettingsPage(QWidget):
             part.strip() for part in self.profile_strategies.text().split(",") if part.strip()
         )
         self.profile_save.emit(self.profile_id.text(), self.profile_name.text(), strategies)
-
-    def _pause(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            "Pause new entries",
-            "Pause new paper entries? This does not submit an order "
-            "and does not enable live trading.",
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self.pause_requested.emit()
-
-    def _resume(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            "Resume paper entries",
-            "Allow Shield to evaluate new paper entries again? Live trading stays locked.",
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self.resume_requested.emit()
-
-    def _engage_kill(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            "Engage kill switch",
-            "Block new operator paper orders? This does not submit an order, "
-            "does not flatten a position, and does not enable live trading. "
-            "Resume paper entries does not release this switch.",
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self.kill_engage_requested.emit()
-
-    def _release_kill(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            "Release kill switch",
-            "Allow Shield to evaluate new operator paper orders again? Live trading stays locked.",
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self.kill_release_requested.emit()
 
     def _save_preferences(self) -> None:
         try:

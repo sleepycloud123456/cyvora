@@ -102,6 +102,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
 
 The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch opens CYVORA Terminal, checks that the window is visible, and exits. A passing smoke line starts with `CYVORA_DESKTOP_SMOKE_OK`.
 
+GitHub Actions runs Ruff, mypy, pytest, `pip-audit`, and the same smoke launch with `QT_QPA_PLATFORM=offscreen` on `ubuntu-latest` and `windows-latest`. Both jobs use PostgreSQL 17. The migration, order, idempotency, and recovery tests read `CYVORA_TEST_DATABASE_URL` and drop schema `public` on that database, so the variable has to point at a disposable database. Unset, those tests skip and PostgreSQL is not contacted.
+
 ## Database
 
 PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0011_worker_kinds`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.

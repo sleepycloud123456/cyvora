@@ -127,9 +127,7 @@ def collect_marks(
     stored radar analysis with a longer age window.
     """
 
-    held_age = (
-        stored_max_age_seconds if stored_max_age_seconds is not None else max_age_seconds
-    )
+    held_age = stored_max_age_seconds if stored_max_age_seconds is not None else max_age_seconds
     found: dict[str, PoolQuote] = {}
     for mint in mints:
         live = refreshed.get(mint)
@@ -148,4 +146,3 @@ def collect_marks(
         if held is not None and quote_usable(held, now, held_age):
             found[mint] = held
     return found
-
