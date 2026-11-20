@@ -5,8 +5,8 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QPainter, QPaintEvent
-from PySide6.QtWidgets import QWidget
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPen
+from PySide6.QtWidgets import QSizePolicy, QWidget
 
 
 class CandleChart(QWidget):
@@ -15,7 +15,8 @@ class CandleChart(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._candles: list[tuple[Decimal, Decimal, Decimal, Decimal]] = []
-        self.setMinimumHeight(180)
+        self.setFixedHeight(188)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setObjectName("CandleChart")
 
     def set_rows(self, rows: list[tuple[str | None, str | None, str | None, str | None]]) -> None:
@@ -34,9 +35,13 @@ class CandleChart(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         del event
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("#0E1626"))
+        painter.fillRect(self.rect(), QColor("#000000"))
+        frame = QPen(QColor(168, 85, 247, 96))
+        frame.setWidthF(1.0)
+        painter.setPen(frame)
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -2, -2), 12, 12)
         if len(self._candles) < 2:
-            painter.setPen(QColor("#8AA0B2"))
+            painter.setPen(QColor("#B7AEC4"))
             painter.drawText(
                 self.rect(),
                 Qt.AlignmentFlag.AlignCenter,
@@ -55,7 +60,7 @@ class CandleChart(QWidget):
         height = max(self.height() - 16, 1)
         slot = width / len(self._candles)
         for index, (opened, high, low, closed) in enumerate(self._candles):
-            color = QColor("#2DD4BF") if closed >= opened else QColor("#F87171")
+            color = QColor("#C084FC") if closed >= opened else QColor("#F87171")
             painter.setPen(color)
             x = slot * index + slot / 2
             y_high = _y(high, bottom, span, height)

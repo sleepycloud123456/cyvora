@@ -21,7 +21,7 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.9.1"
+APP_VERSION = "0.9.2"
 PHASE = "9"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     backup_files_kept: int = Field(default=7, ge=1, le=100)
     log_retention_days: int = Field(default=14, ge=1, le=3650)
     auth_failure_limit: int = Field(default=8, ge=3, le=50)
+    ui_animations: bool = True
 
     @field_validator("execution_mode", mode="before")
     @classmethod

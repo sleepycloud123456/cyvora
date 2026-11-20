@@ -20,7 +20,4 @@ class PlaceholderPage(QWidget):
         self.show_page("This page")
 
     def show_page(self, name: str) -> None:
-        self.body.setText(
-            f"Placeholder. {name} is not a CYVORA Terminal page. "
-            "No live orders, wallet balances, or sample trades are shown here."
-        )
+        self.body.setText(f"Placeholder. {name} is not a CYVORA Terminal page.")

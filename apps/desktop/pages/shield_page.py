@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from apps.desktop.components.disclosure import DetailDisclosure
+from apps.desktop.components.emergency import EmergencyControls
 from domain.shield import ShieldNotice, ShieldSnapshot
+from domain.status import ComponentStatus
 from intelligence.numbers import format_decimal
 
 
@@ -14,28 +17,82 @@ class ShieldPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(16)
         self.notice = QLabel()
-        self.notice.setObjectName("Notice")
+        self.notice.setObjectName("EmptyState")
         self.notice.setWordWrap(True)
+        self.controls = EmergencyControls()
+        self.pause = self.controls.pause
+        self.resume = self.controls.resume
+        self.kill_engage = self.controls.kill_engage
+        self.kill_release = self.controls.kill_release
+        self.entry_state = QLabel("Entry posture has not been read.")
+        self.entry_state.setObjectName("EmptyState")
+        self.entry_state.setWordWrap(True)
+        self.latch = QLabel("Kill switch has not been read.")
+        self.latch.setObjectName("EmptyState")
+        self.latch.setWordWrap(True)
+        self.action_note = QLabel("")
+        self.action_note.setObjectName("EmptyState")
+        self.action_note.setWordWrap(True)
+        self.headline = QLabel("")
+        self.headline.setObjectName("Headline")
+        self.headline.setWordWrap(True)
         self.body = QLabel()
         self.body.setObjectName("Notice")
         self.body.setWordWrap(True)
+        self.aside = QLabel(
+            "Stored paper risk records. These are not wallet balances, "
+            "and a paper approval cannot submit a live order. "
+            "A planned stop is not a guaranteed exit."
+        )
+        self.aside.setObjectName("Notice")
+        self.aside.setWordWrap(True)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.aside)
+        self.details.add(self.body)
+        layout.addWidget(self.controls)
+        layout.addWidget(self.entry_state)
+        layout.addWidget(self.latch)
+        layout.addWidget(self.action_note)
         layout.addWidget(self.notice)
-        layout.addWidget(self.body)
+        layout.addWidget(self.headline)
+        layout.addWidget(self.details)
         layout.addStretch(1)
         self.show_message("Shield storage has not been read.")
 
     def show_message(self, text: str) -> None:
         self.notice.setText(text)
+        self.notice.setVisible(True)
+        self.headline.setText("")
+        self.headline.setVisible(False)
         self.body.setText("")
+        self.details.setVisible(False)
+
+    def show_action(self, text: str) -> None:
+        self.action_note.setText(text)
+
+    def show_entry_state(self, *, halted: bool, breach: bool) -> None:
+        if breach:
+            text = "Entries paused. A breach is latched. Resume does not clear a breach."
+        elif halted:
+            text = "New paper entries are paused."
+        else:
+            text = "Shield evaluates new paper entries."
+        self.entry_state.setText(text)
+
+    def show_kill_switch(self, status: ComponentStatus) -> None:
+        self.latch.setText(f"Kill switch: {status.state}. {status.detail}")
 
     def show_snapshot(self, snapshot: ShieldSnapshot, notices: tuple[ShieldNotice, ...]) -> None:
-        self.notice.setText(
-            "Stored paper risk records. These are not wallet balances, "
-            "and a paper approval cannot submit a live order."
-        )
-        self.body.setText(_lines(snapshot, notices))
+        text = _lines(snapshot, notices)
+        lines = text.splitlines()
+        self.notice.setVisible(False)
+        self.headline.setText("\n".join(lines[:4]))
+        self.headline.setVisible(True)
+        self.body.setText(text)
+        self.details.setVisible(True)
 
 
 def _lines(snapshot: ShieldSnapshot, notices: tuple[ShieldNotice, ...]) -> str:

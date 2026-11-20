@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from apps.desktop.components.disclosure import DetailDisclosure
 from apps.desktop.components.status_card import StatusCard
 from config.settings import PHASE, Settings
 from domain.enums import ExecutionMode
@@ -19,8 +20,8 @@ class HealthPage(QWidget):
         super().__init__()
         self._settings = settings
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 12, 0, 0)
-        layout.setSpacing(16)
+        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setSpacing(22)
         mode = "PAPER" if settings.execution_mode is ExecutionMode.PAPER else "READ-ONLY"
         self.summary = QLabel(
             f"Phase {PHASE}. Mode {mode}. Python {sys.version.split()[0]}. "
@@ -30,28 +31,21 @@ class HealthPage(QWidget):
         )
         self.summary.setObjectName("Notice")
         self.summary.setWordWrap(True)
-        row = QHBoxLayout()
-        row.setSpacing(12)
         self.application_card = StatusCard("Application")
         self.database_card = StatusCard("Database")
         self.backend_card = StatusCard("Backend")
         self.gmgn_card = StatusCard("GMGN")
-        row.addWidget(self.application_card)
-        row.addWidget(self.database_card)
-        row.addWidget(self.backend_card)
-        row.addWidget(self.gmgn_card)
-        second = QHBoxLayout()
-        second.setSpacing(12)
         self.workers_card = StatusCard("Workers")
         self.market_data_card = StatusCard("Market data")
         self.queue_card = StatusCard("Queue")
         self.connection_card = StatusCard("Connection")
         self.kill_switch_card = StatusCard("Kill switch")
-        second.addWidget(self.workers_card)
-        second.addWidget(self.market_data_card)
-        second.addWidget(self.queue_card)
-        second.addWidget(self.connection_card)
-        second.addWidget(self.kill_switch_card)
+        primary = QHBoxLayout()
+        primary.setSpacing(16)
+        primary.addWidget(self.database_card)
+        primary.addWidget(self.backend_card)
+        primary.addWidget(self.gmgn_card)
+        primary.addWidget(self.kill_switch_card)
         self.reconnect = QLabel(
             "The desktop probes the loopback API again every 15 seconds. It does not start the API."
         )
@@ -60,11 +54,27 @@ class HealthPage(QWidget):
         self.freshness = QLabel("Stored radar freshness has not been read.")
         self.freshness.setObjectName("Notice")
         self.freshness.setWordWrap(True)
-        layout.addWidget(self.summary)
-        layout.addLayout(row)
-        layout.addLayout(second)
-        layout.addWidget(self.reconnect)
-        layout.addWidget(self.freshness)
+        secondary = QGridLayout()
+        secondary.setSpacing(16)
+        for index, card in enumerate(
+            (
+                self.application_card,
+                self.workers_card,
+                self.market_data_card,
+                self.queue_card,
+                self.connection_card,
+            )
+        ):
+            secondary.addWidget(card, index // 3, index % 3)
+        secondary_host = QWidget()
+        secondary_host.setLayout(secondary)
+        self.details = DetailDisclosure("Details")
+        self.details.add(self.summary)
+        self.details.add(secondary_host)
+        self.details.add(self.reconnect)
+        self.details.add(self.freshness)
+        layout.addLayout(primary)
+        layout.addWidget(self.details)
         layout.addStretch(1)
 
     def show_freshness(self, text: str) -> None:
