@@ -228,7 +228,8 @@ def test_hologram_frame_uses_purple(qtbot) -> None:  # type: ignore[no-untyped-d
     hologram.show()
     qtbot.waitExposed(hologram)
     image = hologram.grab().toImage()
-    assert image.width() == 300
+    expected = int(round(300 * hologram.devicePixelRatioF()))
+    assert image.width() == expected
     found = False
     for y in range(0, image.height(), 2):
         for x in range(0, image.width(), 2):

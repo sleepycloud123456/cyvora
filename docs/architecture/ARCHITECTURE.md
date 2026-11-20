@@ -32,7 +32,8 @@ CYVORA API (FastAPI, loopback only)
 CYVORA supervisor (separate process, bounded ticks)
     |-- recovery of the stored paper book
     |-- freshness, paper-position count, local notices
-    \-- radar only when --include-radar is set
+    |-- radar when --include-radar or --paper-trader is set
+    \-- paper trader only when --paper-trader is set
 ```
 
 The desktop and the API are separate processes. The desktop does not start the API. Both read the same settings object. There is no message bus. GMGN is a library the radar calls directly. Health does not call it. The GMGN execution gateway has no HTTP client. The paper gateway does not call GMGN. The icon rail lists the operating pages. Radar, Portfolio, CYVORA Intelligence, and Settings stay in the navigation catalog. Radar pages still show the latest stored cycle or an empty state when opened. Open Positions, Trade History, and Strategies show stored simulation rows or an empty state.
@@ -46,7 +47,7 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `monitoring.health` | Builds a `StatusSnapshot` with application, database, backend, and GMGN configuration state. |
 | `database.connection` | Opens a short-lived SQLAlchemy engine when a URL is configured. |
 | `database.models` | Application metadata, radar history, and the paper ledger. |
-| `database.migrations` | Alembic revisions through `0007_operations`. |
+| `database.migrations` | Alembic revisions through `0011_worker_kinds`. |
 | `operations` | Supervisor, recovery, backup, diagnostics, and local auth limits. |
 | `terminal` | Portfolio, analytics, the local analyst, and notification drafts. |
 | `database.repositories` | Radar history and the paper ledger. |
@@ -56,7 +57,7 @@ The desktop and the API are separate processes. The desktop does not start the A
 | `integrations.gmgn` | Allowlisted GMGN reads, rate limiting, and a gateway that refuses trades. |
 | `integrations.solana` | Adapts supplied observations and GMGN candles into market contracts. No RPC. |
 | `intelligence` | One radar cycle, indicators, security, liquidity, smart money, whales, and the score. |
-| `trading` | Paper gateway, order states, positions, strategy registry, and the Nautilus proof. |
+| `trading` | Paper gateway, order states, positions, strategy registry, the paper trader, and the Nautilus proof. |
 | `shield` | Deterministic paper risk decisions. Approval cannot enable a live order. |
 
 ## Data that is stored

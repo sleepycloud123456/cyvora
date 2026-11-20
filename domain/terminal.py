@@ -7,6 +7,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
+from domain.paper_trader import PaperTraderView
+
 AUTHORITY_NOTE = (
     "Global Shield limits remain the only trade-approval authority. "
     "This profile does not change them and cannot enable live trading."
@@ -321,4 +323,5 @@ class TerminalSnapshot:
     profiles: tuple[TradingProfile, ...]
     active_profile_id: str | None
     settings: SettingsView
+    paper_trader: PaperTraderView
     generated_at: datetime

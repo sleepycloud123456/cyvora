@@ -77,6 +77,14 @@ One bounded supervisor tick, with no GMGN call:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_supervisor.ps1 -Ticks 1
 ```
 
+The autonomous paper trader is opt-in and stays in paper mode. It runs the read-only radar cycle and submits through Shield:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_supervisor.ps1 -Ticks 1 -PaperTrader
+```
+
+See [Paper trader](docs/trading/PAPER_TRADER.md). Live trading stays locked.
+
 A local database dump and a redacted diagnostic file:
 
 ```powershell
@@ -98,7 +106,7 @@ GitHub Actions runs Ruff, mypy, pytest, `pip-audit`, and the same smoke launch w
 
 ## Database
 
-PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0007_operations`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0011_worker_kinds`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
 One stored radar cycle, when the key and the database are both configured:
 

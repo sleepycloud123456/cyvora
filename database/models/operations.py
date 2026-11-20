@@ -20,7 +20,8 @@ class OperationWorker(Base):
     __tablename__ = "operation_workers"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('radar', 'portfolio', 'freshness', 'notifications')",
+            "kind IN ('radar', 'portfolio', 'freshness', 'notifications', "
+            "'paper_strategy', 'paper_trader')",
             name="ck_operation_workers_kind",
         ),
         CheckConstraint(

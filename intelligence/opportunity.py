@@ -108,6 +108,7 @@ class ScoreInputs:
     discovered_liquidity: Decimal | None
     prior_liquidity: Decimal | None
     sources: tuple[str, ...]
+    discovered_volume: Decimal | None = None
 
 
 def score_token(inputs: ScoreInputs) -> TokenScore:
@@ -130,6 +131,8 @@ def score_token(inputs: ScoreInputs) -> TokenScore:
         stale=inputs.stale_candles,
     )
     volume_component, volume_rows = _volume_component(volumes, amounts, stale=inputs.stale_candles)
+    if volume_component.score is None and inputs.discovered_volume is not None:
+        volume_component, volume_rows = _volume_from_discovered(inputs.discovered_volume)
     breakout_component, structure = _breakout_component(
         highs,
         closes,
@@ -288,6 +291,35 @@ def _detail(rows: tuple[tuple[str, str], ...]) -> str:
     if not rows:
         return "missing"
     return ", ".join(f"{name}={value}" for name, value in rows[:3])
+
+
+def _volume_from_discovered(
+    volume: Decimal,
+) -> tuple[ComponentScore, tuple[tuple[str, str], ...]]:
+    """Score a 24h discovered volume when candle bars are missing."""
+
+    if volume < 0:
+        points = Decimal(0)
+    elif volume < 1000:
+        points = Decimal(15)
+    elif volume < 10000:
+        points = Decimal(35)
+    elif volume < 100000:
+        points = Decimal(55)
+    elif volume < 1_000_000:
+        points = Decimal(70)
+    else:
+        points = Decimal(80)
+    rows = (("discovered_volume", format(volume, "f")),)
+    return (
+        _component(
+            "volume",
+            score(points),
+            "partial",
+            "24h discovered volume; no candle window",
+        ),
+        rows,
+    )
 
 
 def _volume_component(

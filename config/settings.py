@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -21,7 +22,7 @@ from domain.enums import ExecutionMode
 from domain.exceptions import ConfigurationError
 
 APP_NAME = "CYVORA"
-APP_VERSION = "0.9.3"
+APP_VERSION = "0.9.4"
 PHASE = "9"
 
 _LIVE_MODES = frozenset({"LIVE", "LIVE_LOCKED", "LIVE_AUTHORIZED"})
@@ -67,6 +68,7 @@ class Settings(BaseSettings):
     radar_kline_resolution: Literal["1m", "5m", "15m", "1h"] = "1m"
     radar_kline_lookback_seconds: int = Field(default=7200, ge=300, le=86400)
     radar_market_retention_days: int = Field(default=90, ge=7, le=3650)
+    radar_dexscreener_limit: int = Field(default=10, ge=0, le=30)
     worker_stale_after_seconds: int = Field(default=900, ge=60, le=86400)
     worker_restart_limit: int = Field(default=2, ge=0, le=10)
     backup_dir: Path = Path("backups")
@@ -75,6 +77,18 @@ class Settings(BaseSettings):
     log_retention_days: int = Field(default=14, ge=1, le=3650)
     auth_failure_limit: int = Field(default=8, ge=3, le=50)
     ui_animations: bool = True
+    paper_bankroll_sol: Decimal = Field(default=Decimal(10), gt=0, le=1000)
+    paper_per_trade_fraction: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
+    paper_max_exposure_fraction: Decimal = Field(default=Decimal("0.40"), gt=0, le=1)
+    paper_min_score: Decimal = Field(default=Decimal(65), ge=0, le=100)
+    paper_max_entries_per_cycle: int = Field(default=1, ge=1, le=3)
+    paper_stop_fraction: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
+    paper_allow_risky_security: bool = False
+    paper_unpriced_writeoff_seconds: int = Field(default=1800, ge=60, le=86400)
+    paper_require_price_feed: bool = True
+    paper_min_liquidity_usd: Decimal = Field(default=Decimal(10000), ge=0, le=10_000_000)
+    paper_quote_limit: int = Field(default=3, ge=0, le=5)
+    paper_quote_max_age_seconds: int = Field(default=120, ge=30, le=600)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -195,6 +209,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CYVORA_RADAR_BUDGET_WEIGHT must cover discovery plus the core "
                 "reads for CYVORA_RADAR_ANALYSE_LIMIT tokens."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def paper_trade_fits_inside_exposure(self) -> Settings:
+        """Keep one paper entry inside the total virtual exposure cap."""
+
+        if self.paper_per_trade_fraction > self.paper_max_exposure_fraction:
+            raise ValueError(
+                "CYVORA_PAPER_PER_TRADE_FRACTION cannot exceed CYVORA_PAPER_MAX_EXPOSURE_FRACTION."
             )
         return self
 

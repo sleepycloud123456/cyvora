@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4 — 2026-11-19 — Autonomous paper trader
+
+- Added an opt-in supervisor worker, `--paper-trader`. It runs the existing read-only radar cycle, selects candidates by score and filters, and submits entries and exits through the paper broker and Shield. The virtual bankroll defaults to 10 SOL, with per-trade and total exposure caps. Live trading stays locked.
+- Stored the pass, the decision log, and virtual equity points in PostgreSQL revision `0010_paper_trader`. A row cannot enable live trading.
+- The dashboard shows trader status, the kill switch, open positions with unrealized PnL, recent paper trades, the equity curve, and why each candidate was taken or rejected.
+- Nautilus fills stay inside the engine. They are not copied into the operator paper book.
+- The logon launcher `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\CYVORA.cmd` passes `--paper-trader`. That file is not in the repository. See `docs/trading/PAPER_TRADER.md`.
+- Revision `0011_worker_kinds` lets the supervisor store `paper_strategy` and `paper_trader` worker rows. Live trading stays locked.
+- `CYVORA_PAPER_ALLOW_RISKY_SECURITY` defaults to false. When set, the paper loop may enter `CAUTION`, `HIGH_RISK`, and `UNKNOWN` as well as a clear security result. `REJECTED` stays blocked. The flag cannot enable live trading.
+
 ## 0.9.3 — 2026-11-18 — Historical data, paper pages, and a strategy runner
 
 - Added CSV, Parquet, stored-radar, GMGN kline, and supplied-adapter imports. Quote volume stays volume. It is not executable depth. Quality reports record gaps, staleness, outliers, and whether a bar has reserves or displayed depth.

@@ -12,7 +12,7 @@ from backtesting.fills import price_order
 from backtesting.latency import require_latency
 from backtesting.numbers import quantize_down
 from domain.enums import ExecutionMode
-from domain.exceptions import TradingValidationError
+from domain.exceptions import TradingDisabled, TradingValidationError
 from domain.shield import EmergencyEvidence, ExitKind, RiskIntent
 from domain.simulation import (
     ExecutionAssumption,
@@ -131,6 +131,69 @@ class PaperBroker:
             live_trading_enabled=False,
         )
         return BrokerResult(order, assumption, None, plan.limitations)
+
+    def write_off(
+        self,
+        instrument: SolanaInstrument,
+        quantity: Decimal,
+        *,
+        strategy_id: str,
+        idempotency_key: str,
+    ) -> BrokerResult:
+        """Close a paper position at price zero. Live mode cannot call this."""
+
+        if self._mode is not ExecutionMode.PAPER:
+            raise TradingDisabled(
+                "Read-only mode does not write off paper positions. Live trading stays locked."
+            )
+        if quantity <= 0:
+            return BrokerResult(None, None, "insufficient_position", ())
+        intent = RiskIntent(
+            mint=instrument.mint,
+            side=OrderSide.SELL.value,
+            quantity=quantity,
+            reference_price=Decimal(0),
+            fee_quote=Decimal(0),
+            slippage_quote=Decimal(0),
+            size_decimals=instrument.size_decimals,
+            price_decimals=instrument.price_decimals,
+            quote_decimals=instrument.quote_decimals,
+            quote_symbol=instrument.quote_symbol,
+            stop_price=None,
+            equity_quote=None,
+            sol_balance=None,
+            valued_at=None,
+            marks=(),
+            liquidity_quote=None,
+            volatility=None,
+            confidence=None,
+            token_age_seconds=None,
+            market_condition=None,
+            security=None,
+            creator=None,
+            narrative="unpriced_writeoff",
+            liquidity_provider=None,
+            driver=None,
+            estimated_impact=None,
+            exit_kind=ExitKind.NORMAL.value,
+            signal_ref=None,
+            emergency=None,
+        )
+        request = PaperOrderRequest(
+            strategy_id=strategy_id,
+            instrument=instrument,
+            side=OrderSide.SELL,
+            quantity=quantity,
+            reference_price=Decimal(0),
+            outcome=SimulationOutcome.FILL,
+            idempotency_key=idempotency_key,
+            fee_quote=Decimal(0),
+            slippage_quote=Decimal(0),
+            write_off=True,
+            risk=intent,
+        )
+        order = self._manager.submit(strategy_id, request)
+        return BrokerResult(order, None, None, ("unpriced_writeoff",))
 
     def plan_exit(
         self,

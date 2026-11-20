@@ -76,6 +76,7 @@ class PaperOrderRequest:
         slippage_quote: Decimal = Decimal(0),
         shield_approved: bool = False,
         risk: RiskIntent | None = None,
+        write_off: bool = False,
     ) -> None:
         self.strategy_id = strategy_id
         self.instrument = instrument
@@ -89,6 +90,7 @@ class PaperOrderRequest:
         self.slippage_quote = slippage_quote
         self.shield_approved = shield_approved
         self.risk = risk
+        self.write_off = write_off
 
 
 class PaperExecutionGateway:
@@ -145,7 +147,20 @@ class PaperExecutionGateway:
 
     def _validate(self, request: PaperOrderRequest, instrument: SolanaInstrument) -> None:
         require_positive(request.quantity, "Quantity")
-        require_positive(request.reference_price, "Reference price")
+        if request.write_off:
+            if request.side is not OrderSide.SELL:
+                raise TradingValidationError("A write-off must be a sell.")
+            if (
+                request.reference_price != 0
+                or request.fee_quote != 0
+                or request.slippage_quote != 0
+            ):
+                raise TradingValidationError(
+                    "A write-off must be at price zero with no fee or slippage."
+                )
+            require_non_negative(request.reference_price, "Reference price")
+        else:
+            require_positive(request.reference_price, "Reference price")
         require_non_negative(request.fee_quote, "Fee")
         require_non_negative(request.slippage_quote, "Slippage")
         require_scaled(request.quantity, instrument.size_decimals, "Quantity")
@@ -282,13 +297,20 @@ class PaperExecutionGateway:
             return Decimal(0), None, "rejected"
         if request.outcome is SimulationOutcome.FAIL:
             return Decimal(0), None, "simulated_failure"
+        if request.write_off:
+            filled = request.quantity
+            available = Decimal(0) if position is None else position.quantity
+            if filled > available:
+                return Decimal(0), None, "insufficient_position"
+            return filled, Decimal(0), None
         price = _fill_price(request.side, request.reference_price, request.slippage_quote)
         require_scaled(price, instrument.price_decimals, "Fill price")
-        filled = (
+        partial = (
             request.quantity if request.outcome is SimulationOutcome.FILL else request.fill_quantity
         )
-        if filled is None:
+        if partial is None:
             raise TradingValidationError("A partial paper fill needs a fill quantity.")
+        filled = partial
         if request.side is OrderSide.SELL:
             available = Decimal(0) if position is None else position.quantity
             if filled > available:

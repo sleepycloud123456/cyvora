@@ -17,15 +17,16 @@ Wallet balances are not read. The recovery row stores `wallet_reconciliation = n
 
 ## Supervisor
 
-`operations.startup` runs five workers for a fixed number of ticks:
+`operations.startup` runs five workers for a fixed number of ticks. `--paper-trader` adds a sixth and also enables the radar worker for that process.
 
 | Worker | Tick |
 |---|---|
-| `radar` | Skipped unless `--include-radar` is set. That flag calls the existing read-only cycle, including the curl transport and the rate limiter. |
+| `radar` | Skipped unless `--include-radar` or `--paper-trader` is set. That calls the existing read-only cycle, including the curl transport and the rate limiter, once per tick. |
 | `freshness` | Reads the newest stored radar cycle time. It does not call GMGN. |
 | `portfolio` | Counts stored open paper positions. A failed read is not reported as zero. |
 | `notifications` | Counts stored local notices. Telegram delivery stays off. |
 | `paper_strategy` | Evaluates `RUNNING` strategies in `PAPER` mode. An entry is submitted only through Shield, idempotency, and the kill-switch hook, and only when the active profile signal threshold is met. Read-only mode skips the tick. A missing database does not submit an order. |
+| `paper_trader` | Present only with `--paper-trader`. It picks stored radar candidates, sizes them from the virtual bankroll, and submits through the same paper broker. Revision `0011_worker_kinds` allows that worker row. See `docs/trading/PAPER_TRADER.md`. |
 
 A tick that raises is retried up to `CYVORA_WORKER_RESTART_LIMIT` (default 2). The exception text is not stored. Heartbeats go to `operation_workers` and `operation_heartbeats` when PostgreSQL is configured. `cloud_deployed` and `live_trading_enabled` are constrained false.
 
@@ -38,6 +39,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_supervisor.ps1
 ```
 
 `--ticks 0` repeats until interrupted, with an interval of at least 60 seconds. That process is not started by the desktop and is not registered as a service.
+
+Paper trading from logon is opt-in. The file `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\CYVORA.cmd` starts the API and the supervisor. It does not start the desktop and it is not in the repository. With the paper trader enabled, the supervisor argument is `--ticks 0 --interval-seconds 120 --paper-trader`. Removing `--paper-trader` stops new autonomous entries. Closing the **CYVORA Supervisor** window stops the loop. The kill switch still refuses new paper orders while the process is running. See `docs/trading/PAPER_TRADER.md`.
 
 ## Service installation
 

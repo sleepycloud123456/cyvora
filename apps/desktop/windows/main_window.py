@@ -629,6 +629,11 @@ class MainWindow(QMainWindow):
         if snapshot is None:
             return
         self.dashboard.show_portfolio(snapshot.portfolio)
+        self.dashboard.show_trader(
+            snapshot.paper_trader,
+            snapshot.portfolio.positions,
+            snapshot.portfolio.recent,
+        )
         self.portfolio.show_portfolio(snapshot.portfolio)
         self.analytics.show_analytics(snapshot.analytics)
         self.analyst.show_report(snapshot.analyst)
