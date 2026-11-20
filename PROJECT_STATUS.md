@@ -1,6 +1,6 @@
 # Project status
 
-Date: 2026-11-19.
+Date: 2026-11-20.
 
 ## Current phase
 
@@ -27,7 +27,7 @@ The live-trading gate stays closed. A checklist marked fully present still retur
 
 ## In progress
 
-Nothing inside Phase 9. A paper-only Nautilus health check and two local security follow-ups are recorded below. Live trading was not enabled.
+Nothing inside Phase 9. A local launcher, scratch restore, and opt-in alerts were added after the readiness review. Live trading was not enabled.
 
 ## Blockers
 
@@ -90,6 +90,16 @@ Recorded on 2026-11-11 after the Nautilus health follow-up:
 - The loaded execution mode is `READ_ONLY`. The kill switch state word is `released`. Neither was changed. No operator paper order was inserted.
 - `fsspec==2026.6.0` does not resolve with `nautilus-trader==1.231.0`. The lock was not changed.
 
+Recorded on 2026-11-20 after rebasing the launcher onto the paper-trader chain:
+
+- `uv run ruff check .` passed.
+- `uv run ruff format --check .` passed.
+- `uv run mypy` passed.
+- `uv run pytest` — 214 passed, 3 skipped. The skips are the database check, the opt-in GMGN smoke, and the opt-in radar smoke.
+- `uv run python -m apps.desktop.main --smoke` printed `CYVORA_DESKTOP_SMOKE_OK` with database not configured, backend offline, and GMGN not configured.
+- `alembic heads` printed `0013_recovery (head)` only. On a scratch database, `upgrade head`, `downgrade base`, and `upgrade head` all completed. The current revision was `0013_recovery` after the second upgrade.
+- The recovery revision revises `0012_paper_trader_exited`. Live trading stayed disabled.
+
 No API key or database URL is printed.
 
 ## Known limitations
@@ -115,14 +125,14 @@ No API key or database URL is printed.
 - Wallet SOL and USD value are not available. Verified equity is the last Shield baseline.
 - A missing open-position mark is not treated as zero. Mixed quotes are not summed.
 - The latest radar cycle does not store a market-condition label.
-- Smart-money accumulation and application-stopped notices have no stored source, so they are not emitted.
+- Application-stopped notices come from a recorded process stop. Smart-money accumulation notices come from a stored tag count that rose between cycles.
 - Entry and exit markers are not drawn on candles. Buy and sell pressure is not a stored series. Liquidity history is stored and is not a separate chart.
 - The active profile signal threshold gates paper strategy entries. Radar scoring and Shield do not read it. A missing threshold does not become zero and does not submit an entry.
-- Telegram delivery is off. No bot token is loaded.
+- Telegram delivery is off unless `CYVORA_TELEGRAM_ENABLED` is set. The bot token is read from `.env` and is not logged. The preference row cannot enable the channel.
 - There is no websocket server and no external queue. Health says so.
-- Retention is a plan. Audit events and backtests are not deleted.
-- The cloud Dockerfile and compose file were not built or started. The scheduled-task script was not run with `-ConfirmInstall`.
-- `pg_dump` is accepted only from a Program Files PostgreSQL install. A copy earlier on `PATH` is ignored.
+- Retention cleanup runs only with an explicit flag or the confirmation word `DELETE`. Audit events and backtests are not deleted.
+- The cloud Dockerfile and compose file were not built or started. The supervisor and backup scheduled-task scripts were not run with `-ConfirmInstall`. The launcher does not register either task.
+- `pg_dump`, `pg_restore`, and `psql` are accepted only from a Program Files PostgreSQL install. A copy earlier on `PATH` is ignored.
 - `py -3.13` does not find the uv interpreter. Use `uv run`.
 
 ## Security
@@ -143,8 +153,8 @@ No API key or database URL is printed.
 ## Exact next actions
 
 1. Do not enable live trading. The decisions required before that can be discussed are listed in `docs/security/LIVE_READINESS.md`.
-2. Do not add a signing key, an RPC provider, a swap, or a Telegram bot token. Wallet binding is a separate decision.
-3. Do not register the supervisor task or deploy the cloud design unless the user authorizes that specific step.
+2. Do not add a signing key, an RPC provider, or a swap. A Telegram bot token belongs only in the untracked `.env`, and the channel stays off until `CYVORA_TELEGRAM_ENABLED` is set. Wallet binding is a separate decision.
+3. Do not register the supervisor task, the backup task, or deploy the cloud design unless the user authorizes that specific step.
 4. Decide whether the public GitHub repository should stay public before any live operational notes are added.
 
 ## Phase 9 checklist

@@ -50,15 +50,13 @@ CRITICAL_NOTIFICATIONS = frozenset(
         NotificationCategory.DATABASE_FAILURE,
         NotificationCategory.API_DISCONNECTION,
         NotificationCategory.LIQUIDITY_REMOVAL,
-    }
-)
-
-UNSOURCED_NOTIFICATIONS = frozenset(
-    {
-        NotificationCategory.SMART_MONEY_ACCUMULATION,
         NotificationCategory.APPLICATION_STOPPED,
     }
 )
+
+# Accumulation compares stored smart-wallet counts. Application-stopped reads a
+# process lifecycle row. Both are sourced, so this set stays empty.
+UNSOURCED_NOTIFICATIONS: frozenset[NotificationCategory] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -74,9 +72,19 @@ class TradingProfile:
     authority_note: str
 
 
+@dataclass(frozen=True, slots=True)
+class AlertEvidence:
+    """One stored fact a notice can be built from."""
+
+    category: str
+    subject: str
+    detail: str
+    evidence_at: datetime
+
+
 @dataclass(frozen=True)
 class NotificationPreferences:
-    """Local delivery rules. Telegram stays off because no bot token is loaded."""
+    """Local delivery rules. The preference row cannot turn Telegram on."""
 
     enabled_categories: tuple[str, ...]
     quiet_start_minute: int | None
@@ -98,6 +106,7 @@ class NotificationRecord:
     recorded_at: datetime
     withheld: bool
     delivered_telegram: bool
+    telegram_state: str = "off"
 
 
 @dataclass(frozen=True)

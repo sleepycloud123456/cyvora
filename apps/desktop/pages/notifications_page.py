@@ -1,11 +1,13 @@
-"""Local notification list. Telegram is not sent."""
+"""Local notification list. Telegram is sent only by the opt-in worker."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from apps.desktop.components.disclosure import DetailDisclosure
-from domain.terminal import UNSOURCED_NOTIFICATIONS, NotificationRecord
+from domain.terminal import NotificationRecord
+
+_TELEGRAM = {"sent": "sent", "failed": "failed"}
 
 _COLUMNS = ("Evidence", "Category", "Subject", "Detail", "Desktop", "Telegram")
 
@@ -29,11 +31,11 @@ class NotificationsPage(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.setShowGrid(False)
         self.table.horizontalHeader().setStretchLastSection(True)
-        missing = ", ".join(sorted(item.value for item in UNSOURCED_NOTIFICATIONS))
         self.footer = QLabel(
-            "Smart-money accumulation and application-stopped have no stored source, "
-            f"so they are not emitted ({missing}). Real execution notices are not emitted. "
-            "Telegram delivery is off because no bot token is loaded."
+            "Application-stopped notices come from a process stop. "
+            "Smart-money accumulation notices come from a stored wallet-tag count that "
+            "rose between cycles. Telegram stays off unless CYVORA_TELEGRAM_ENABLED is set. "
+            "The bot token is not shown. Real execution notices are not emitted."
         )
         self.footer.setObjectName("Notice")
         self.footer.setWordWrap(True)
@@ -65,7 +67,7 @@ class NotificationsPage(QWidget):
         self.notice.setVisible(False)
         self.context.setText(
             "Local notices derived from stored rows. A withheld row fell in the quiet period. "
-            "Nothing was sent to Telegram."
+            "Telegram stays off unless the environment opt-in is set."
         )
         self.table.setVisible(True)
         self.table.setRowCount(len(rows))
@@ -77,7 +79,7 @@ class NotificationsPage(QWidget):
                 row.subject,
                 row.detail,
                 delivery,
-                "not sent",
+                _TELEGRAM.get(row.telegram_state, "not sent"),
             )
             for column, value in enumerate(values):
                 self.table.setItem(index, column, QTableWidgetItem(value))

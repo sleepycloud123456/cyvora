@@ -210,6 +210,7 @@ def snapshot_payload(snapshot: TerminalSnapshot) -> dict[str, object]:
                 "evidence_at": item.evidence_at.isoformat(),
                 "withheld": item.withheld,
                 "delivered_telegram": False,
+                "telegram_state": item.telegram_state,
             }
             for item in snapshot.notifications
         ],

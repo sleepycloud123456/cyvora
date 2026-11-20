@@ -1,4 +1,4 @@
-"""Notification drafts from stored events. No message leaves the machine."""
+"""Notification drafts from stored events. Sending is the notification worker's job."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from domain.shield import PAPER_APPROVED, ShieldNotice, ShieldSnapshot
 from domain.status import StatusSnapshot
 from domain.terminal import (
     CRITICAL_NOTIFICATIONS,
+    AlertEvidence,
     NotificationCategory,
     NotificationDraft,
     NotificationPreferences,
@@ -41,10 +42,12 @@ def build_notifications(
     status: StatusSnapshot | None,
     preferences: NotificationPreferences,
     now: datetime,
+    alerts: tuple[AlertEvidence, ...] = (),
 ) -> tuple[NotificationDraft, ...]:
     """Create drafts for evidence that is actually stored."""
 
     drafts: list[NotificationDraft] = []
+    drafts.extend(drafts_for_alerts(alerts, preferences=preferences))
     drafts.extend(_cycle(cycle, now))
     drafts.extend(_orders(trading.orders))
     drafts.extend(_decisions(decisions))
@@ -59,6 +62,36 @@ def build_notifications(
             continue
         kept.append(_with_quiet(draft, preferences, category in CRITICAL_NOTIFICATIONS))
     return tuple(kept)
+
+
+def drafts_for_alerts(
+    alerts: tuple[AlertEvidence, ...],
+    *,
+    preferences: NotificationPreferences | None = None,
+) -> tuple[NotificationDraft, ...]:
+    """Build notices for stored lifecycle stops and smart-wallet increases."""
+
+    drafts: list[NotificationDraft] = []
+    for item in alerts:
+        try:
+            category = NotificationCategory(item.category)
+        except ValueError:
+            continue
+        if category not in {
+            NotificationCategory.APPLICATION_STOPPED,
+            NotificationCategory.SMART_MONEY_ACCUMULATION,
+        }:
+            continue
+        if preferences is not None:
+            enabled = set(preferences.enabled_categories)
+            if category not in enabled and category not in CRITICAL_NOTIFICATIONS:
+                continue
+        draft = _one(category, item.subject, item.detail, item.evidence_at)
+        if preferences is None:
+            drafts.append(draft)
+            continue
+        drafts.append(_with_quiet(draft, preferences, category in CRITICAL_NOTIFICATIONS))
+    return tuple(drafts)
 
 
 def unseen(

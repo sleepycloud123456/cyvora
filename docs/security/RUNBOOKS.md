@@ -39,7 +39,7 @@ The switch does not sell a position and does not submit a chain transaction.
 ## Backup and diagnostics
 
 1. `uv run python -m operations.backup` writes a custom-format dump under `backups/` for a loopback server only. The command prints the status and the file name. It does not print the URL.
-2. `pg_dump` must be the Program Files PostgreSQL binary. A `PATH` copy is ignored.
+2. `pg_dump` must be the Program Files PostgreSQL binary. A `PATH` copy is ignored. `uv run python -m operations.backup restore --file <name>` loads that dump into a scratch database. Adding `--swap --confirm SWAP` renames the live database only after the scratch check. `uv run python -m operations.backup drill` runs that check without a swap.
 3. `uv run python -m operations.diagnostics` writes a redacted JSON file under `diagnostics/`. The file is gitignored. Do not attach it to a public issue without reading it first. The export redacts known secrets and database URLs. It does not include the process environment.
 4. `uv run python -m readiness` prints the readiness report and `live_trading_enabled=false`.
 

@@ -128,7 +128,7 @@ class AuthEvent:
 
 @dataclass(frozen=True, slots=True)
 class RetentionPlan:
-    """What may age out later. This plan does not delete rows."""
+    """What may age out. Applying the plan is a separate explicit step."""
 
     market_data_days: int
     log_days: int
@@ -136,6 +136,36 @@ class RetentionPlan:
     audit_events_deleted: bool
     backtests_deleted: bool
     notes: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RetentionResult:
+    """Cleanup that ran only after an explicit flag or the confirmation word."""
+
+    applied: bool
+    backup_files_removed: int
+    log_files_removed: int
+    market_rows_removed: int
+    audit_events_deleted: bool
+    backtests_deleted: bool
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class RestoreReport:
+    """A scratch restore. The live database changes only after a confirmed swap."""
+
+    status: str
+    tool: str
+    file_name: str | None
+    scratch_database: str | None
+    previous_database: str | None
+    swapped: bool
+    scratch_dropped: bool
+    detail: str
+    started_at: datetime
+    finished_at: datetime
+    live_trading_enabled: bool = False
 
 
 @dataclass(frozen=True, slots=True)

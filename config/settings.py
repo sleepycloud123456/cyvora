@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     paper_min_liquidity_usd: Decimal = Field(default=Decimal(10000), ge=0, le=10_000_000)
     paper_quote_limit: int = Field(default=3, ge=0, le=5)
     paper_quote_max_age_seconds: int = Field(default=120, ge=30, le=600)
+    telegram_enabled: bool = False
+    telegram_bot_token: SecretStr | None = Field(default=None, repr=False)
+    telegram_chat_id: str | None = Field(default=None, repr=False)
+    telegram_min_interval_seconds: int = Field(default=2, ge=1, le=3600)
+    telegram_burst: int = Field(default=5, ge=1, le=20)
 
     @field_validator("execution_mode", mode="before")
     @classmethod
@@ -160,10 +165,10 @@ class Settings(BaseSettings):
             return value.strip().lower()
         return value
 
-    @field_serializer("gmgn_api_key", "api_token")
+    @field_serializer("gmgn_api_key", "api_token", "telegram_bot_token", "telegram_chat_id")
     @classmethod
-    def serialize_secret(cls, value: SecretStr | None) -> str | None:
-        if value is None:
+    def serialize_secret(cls, value: SecretStr | str | None) -> str | None:
+        if value is None or value == "":
             return None
         return "configured"
 
@@ -193,6 +198,45 @@ class Settings(BaseSettings):
             return None
         if len(value.get_secret_value()) < 16:
             raise ValueError("CYVORA_API_TOKEN must be at least 16 characters.")
+        return value
+
+    @field_validator("telegram_bot_token", mode="before")
+    @classmethod
+    def blank_telegram_token_is_unset(cls, value: object) -> object:
+        if value is None:
+            return None
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if isinstance(raw, str) and raw.strip() == "":
+            return None
+        if isinstance(raw, str):
+            return raw.strip()
+        return value
+
+    @field_validator("telegram_bot_token")
+    @classmethod
+    def require_telegram_token_length(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        if len(value.get_secret_value()) < 20:
+            raise ValueError("CYVORA_TELEGRAM_BOT_TOKEN must be at least 20 characters.")
+        return value
+
+    @field_validator("telegram_chat_id", mode="before")
+    @classmethod
+    def blank_telegram_chat_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("telegram_chat_id")
+    @classmethod
+    def require_numeric_telegram_chat(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.lstrip("-").isdigit() or not 1 <= len(value.lstrip("-")) <= 20:
+            raise ValueError("CYVORA_TELEGRAM_CHAT_ID must be a numeric chat id.")
         return value
 
     @model_validator(mode="after")

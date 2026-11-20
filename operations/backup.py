@@ -22,19 +22,27 @@ _TRUSTED_ROOTS = (
 )
 
 
-def find_pg_dump() -> Path | None:
-    """Return pg_dump from a Program Files PostgreSQL install.
+def find_pg_tool(executable: str) -> Path | None:
+    """Return a PostgreSQL tool from a Program Files install.
 
-    A binary found earlier on PATH is not used. The dump process receives
+    A binary found earlier on PATH is not used. The child process can receive
     the database password, so a replaced executable would receive it too.
     """
 
+    if executable not in {"pg_dump.exe", "pg_restore.exe", "psql.exe"}:
+        return None
     for version in ("17", "16", "15"):
         for root in _TRUSTED_ROOTS:
-            candidate = root / version / "bin" / "pg_dump.exe"
+            candidate = root / version / "bin" / executable
             if candidate.is_file():
                 return candidate
     return None
+
+
+def find_pg_dump() -> Path | None:
+    """Return pg_dump from a Program Files PostgreSQL install."""
+
+    return find_pg_tool("pg_dump.exe")
 
 
 def run_backup(
@@ -181,9 +189,38 @@ def _subprocess(argv: list[str], env: Mapping[str, str], destination: Path) -> i
     return int(completed.returncode)
 
 
-def main() -> None:
-    """Create one local dump and print only the status, tool, and file name."""
+def main(argv: list[str] | None = None) -> None:
+    """Dump, restore, or drill. Connection strings are not printed."""
 
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="cyvora-backup")
+    sub = parser.add_subparsers(dest="command")
+    sub.add_parser("dump")
+    restore = sub.add_parser("restore")
+    restore.add_argument("--file", required=True)
+    restore.add_argument("--swap", action="store_true")
+    restore.add_argument("--confirm", default="")
+    drill = sub.add_parser("drill")
+    drill.add_argument("--file", default="")
+    drill.add_argument("--drop-scratch", action="store_true")
+    drill.add_argument("--confirm", default="")
+    args = parser.parse_args(argv)
+    command = args.command or "dump"
+    if command == "restore":
+        _main_restore(args.file, swap=bool(args.swap), confirm=str(args.confirm))
+        return
+    if command == "drill":
+        _main_drill(
+            str(args.file) or None,
+            drop_scratch=bool(args.drop_scratch),
+            confirm=str(args.confirm),
+        )
+        return
+    _main_dump()
+
+
+def _main_dump() -> None:
     from config.settings import assert_runtime_safe, get_settings
 
     settings = get_settings()
@@ -203,6 +240,55 @@ def main() -> None:
     print(f"bytes={size}")
     print("live_trading_enabled=false")
     raise SystemExit(0 if report.status in {"completed", "not_configured", "tool_missing"} else 1)
+
+
+def _main_restore(file_name: str, *, swap: bool, confirm: str) -> None:
+    from config.settings import assert_runtime_safe, get_settings
+    from operations.restore import run_restore
+
+    settings = get_settings()
+    assert_runtime_safe(settings)
+    report = run_restore(settings, file_name, swap=swap, confirm=confirm or None)
+    _print_restore(report)
+    if swap and not report.swapped:
+        raise SystemExit(2)
+    raise SystemExit(0 if report.status in {"verified", "swapped"} else 1)
+
+
+def _main_drill(file_name: str | None, *, drop_scratch: bool, confirm: str) -> None:
+    from config.settings import assert_runtime_safe, get_settings
+    from operations.restore import run_restore_drill
+
+    settings = get_settings()
+    assert_runtime_safe(settings)
+    report = run_restore_drill(
+        settings,
+        file_name=file_name,
+        drop_scratch=drop_scratch,
+        confirm=confirm or None,
+    )
+    _print_restore(report)
+    if drop_scratch and confirm == "DROP" and not report.scratch_dropped:
+        raise SystemExit(2)
+    if drop_scratch and confirm != "DROP":
+        raise SystemExit(2)
+    raise SystemExit(0 if report.status == "verified" else 1)
+
+
+def _print_restore(report: object) -> None:
+    from domain.operations import RestoreReport
+
+    if not isinstance(report, RestoreReport):
+        print("CYVORA_RESTORE_FAIL")
+        return
+    print(f"CYVORA_RESTORE_{report.status.upper()}")
+    print(f"tool={report.tool}")
+    print(f"file={report.file_name or 'none'}")
+    print(f"scratch={report.scratch_database or 'none'}")
+    print(f"previous={report.previous_database or 'none'}")
+    print(f"swapped={str(report.swapped).lower()}")
+    print(f"scratch_dropped={str(report.scratch_dropped).lower()}")
+    print("live_trading_enabled=false")
 
 
 def _finish(

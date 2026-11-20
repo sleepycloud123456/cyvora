@@ -99,7 +99,10 @@ def normalize_preferences(
     if live_trading_enabled:
         raise TradingValidationError("Notification settings cannot enable live trading.")
     if telegram_delivery:
-        raise TradingValidationError("Telegram delivery is not configured. No bot token is loaded.")
+        raise TradingValidationError(
+            "Notification settings cannot enable Telegram. "
+            "The channel stays off unless CYVORA_TELEGRAM_ENABLED is set."
+        )
     if (quiet_start_minute is None) != (quiet_end_minute is None):
         raise TradingValidationError("A quiet period needs both a start and an end minute.")
     for minute in (quiet_start_minute, quiet_end_minute):

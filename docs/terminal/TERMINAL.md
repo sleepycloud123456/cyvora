@@ -36,7 +36,7 @@ The only provider is `stored-evidence`. It explains stored analyses, Shield post
 
 ## Notifications
 
-Notices are inserted from stored discoveries, confirmed paper orders, Shield decisions, emergencies, breach reasons, and the local status probe. The dedup key stops a repeat inside the configured interval. A quiet window withholds non-critical notices. Emergency, daily loss, drawdown, consecutive losses, database failure, API disconnection, and liquidity removal stay recorded. Smart-money accumulation and application-stopped have no stored source, so they are not emitted. Telegram delivery is constrained off. No bot token is loaded.
+Notices are inserted from stored discoveries, confirmed paper orders, Shield decisions, emergencies, breach reasons, the local status probe, a process stop, and a stored smart-wallet tag count that rose between cycles. The dedup key stops a repeat inside the configured interval. A quiet window withholds non-critical notices. Emergency, daily loss, drawdown, consecutive losses, database failure, API disconnection, liquidity removal, and application-stopped stay recorded. The preference row cannot enable Telegram. The notification worker sends to Telegram only when `CYVORA_TELEGRAM_ENABLED` is set, and it does not log the bot token.
 
 ## Settings and controls
 

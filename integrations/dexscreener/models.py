@@ -140,9 +140,12 @@ def quote_from_pair(pair: dict[str, Any], source: str = "tokens") -> DexScreener
     price = as_decimal(pair.get("priceNative"))
     if mint is None or price is None or price <= 0:
         return None
-    liquidity = pair.get("liquidity") if isinstance(pair.get("liquidity"), dict) else {}
-    volume = pair.get("volume") if isinstance(pair.get("volume"), dict) else {}
-    base = pair.get("baseToken") if isinstance(pair.get("baseToken"), dict) else {}
+    raw_liquidity = pair.get("liquidity")
+    raw_volume = pair.get("volume")
+    raw_base = pair.get("baseToken")
+    liquidity = raw_liquidity if isinstance(raw_liquidity, dict) else {}
+    volume = raw_volume if isinstance(raw_volume, dict) else {}
+    base = raw_base if isinstance(raw_base, dict) else {}
     symbol = base.get("symbol") if isinstance(base.get("symbol"), str) else None
     name = base.get("name") if isinstance(base.get("name"), str) else None
     pair_address = pair.get("pairAddress")

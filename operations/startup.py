@@ -66,6 +66,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.ticks == 0 and interval < 60:
         print("CYVORA_SUPERVISOR_FAIL reason=interval")
         raise SystemExit(2)
+    from operations.lifecycle import record_lifecycle
+
+    record_lifecycle(settings, "supervisor", "started")
     try:
         if args.ticks == 0:
             while True:
@@ -90,6 +93,8 @@ def main(argv: list[str] | None = None) -> None:
     except KeyboardInterrupt:
         print("CYVORA_SUPERVISOR_STOPPED")
         raise SystemExit(0) from None
+    finally:
+        record_lifecycle(settings, "supervisor", "stopped")
 
 
 def _print(recovery: RecoveryReport, report: RunReport) -> None:

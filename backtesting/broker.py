@@ -144,8 +144,7 @@ class PaperBroker:
 
         if self._mode is not ExecutionMode.PAPER:
             raise TradingDisabled(
-                "Read-only mode does not write off paper positions. "
-                "Live trading stays locked."
+                "Read-only mode does not write off paper positions. Live trading stays locked."
             )
         if quantity <= 0:
             return BrokerResult(None, None, "insufficient_position", ())

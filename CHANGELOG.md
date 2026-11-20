@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 — Launcher, restore, and alerts
+
+- Added `scripts/launch_cyvora.ps1` and `scripts/launch_cyvora.cmd`. The script checks uv and loopback PostgreSQL, applies migrations, waits for `/health`, can start the supervisor for that session, opens the desktop, and stops the processes afterward. It does not register a scheduled task or a Windows service. `-PaperTrader` is a separate opt-in and is not the default.
+- The desktop banner names an API that is down and stored radar data that is stale.
+- Restore loads a dump into a scratch database and swaps only with `--confirm SWAP`. A restore drill verifies the scratch database and does not rename the live database. Retention cleanup runs only with `--apply` or `confirm DELETE`. Audit events and backtests are not deleted. Scheduled backups stay opt-in.
+- The notification worker stores process-stop and smart-wallet accumulation notices and can send them through Telegram. The channel stays off unless `CYVORA_TELEGRAM_ENABLED` is set. The bot token is not logged. Live trading stays disabled. Alembic revision `0013_recovery` follows `0012_paper_trader_exited`.
+
 ## 0.9.4 — 2026-11-19 — Autonomous paper trader
 
 - Added an opt-in supervisor worker, `--paper-trader`. It runs the existing read-only radar cycle, selects candidates by score and filters, and submits entries and exits through the paper broker and Shield. The virtual bankroll defaults to 10 SOL, with per-trade and total exposure caps. Live trading stays locked.

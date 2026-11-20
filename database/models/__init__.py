@@ -5,7 +5,9 @@ from database.models.base import Base
 from database.models.operations import (
     AuthEventRow,
     OperationBackup,
+    OperationDelivery,
     OperationHeartbeat,
+    OperationLifecycle,
     OperationRecovery,
     OperationWorker,
 )
@@ -66,7 +68,9 @@ __all__ = [
     "Base",
     "IndicatorSignal",
     "OperationBackup",
+    "OperationDelivery",
     "OperationHeartbeat",
+    "OperationLifecycle",
     "OperationRecovery",
     "OperationWorker",
     "PaperStrategyAuditRow",

@@ -63,6 +63,14 @@ Desktop:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_desktop.ps1
 ```
 
+One local session, which checks uv and PostgreSQL, applies migrations, starts the API, waits for `/health`, opens the desktop, and stops the processes when the desktop closes:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch_cyvora.ps1
+```
+
+Add `-IncludeSupervisor` to run the supervisor for that session only. `scripts\launch_cyvora.cmd` calls the same script. Neither command registers a scheduled task or a Windows service. See [Operations](docs/operations/OPERATIONS.md).
+
 Health check while the API is running:
 
 ```powershell
@@ -92,7 +100,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup_database.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\export_diagnostics.ps1
 ```
 
-`scripts/register_supervisor_task.ps1` does not register a scheduled task unless you pass `-ConfirmInstall`. The cloud files under `deploy/` are not applied by these commands. See [Operations](docs/operations/OPERATIONS.md).
+`scripts/register_supervisor_task.ps1` and `scripts/register_backup_task.ps1` do not register a scheduled task unless you pass `-ConfirmInstall`. A restore into a scratch database, a restore drill, and retention cleanup are documented in [Operations](docs/operations/OPERATIONS.md). The cloud files under `deploy/` are not applied by these commands.
 
 ## Tests
 
@@ -104,7 +112,7 @@ The script runs Ruff, mypy, pytest, and a desktop smoke launch. The smoke launch
 
 ## Database
 
-PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0011_worker_kinds`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
+PostgreSQL 17 is installed. `uv run alembic upgrade head` applies revisions through `0013_recovery`. A new machine still needs a local role, a database, and `CYVORA_DATABASE_URL` in the untracked `.env`. The URL scheme is `postgresql+psycopg://`. Do not paste the password into chat or into a commit.
 
 One stored radar cycle, when the key and the database are both configured:
 

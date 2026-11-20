@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database.models.base import Base
@@ -118,6 +118,56 @@ class OperationBackup(Base):
     live_trading_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OperationLifecycle(Base):
+    """A local process start or stop. The detail is a fixed sentence."""
+
+    __tablename__ = "operation_lifecycle"
+    __table_args__ = (
+        CheckConstraint(
+            "component IN ('api', 'supervisor', 'desktop', 'launcher')",
+            name="ck_operation_lifecycle_component",
+        ),
+        CheckConstraint(
+            "action IN ('started', 'stopped')",
+            name="ck_operation_lifecycle_action",
+        ),
+        CheckConstraint("live_trading_enabled IS false", name="ck_operation_lifecycle_live"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    component: Mapped[str] = mapped_column(String(32), nullable=False)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    detail: Mapped[str] = mapped_column(String(300), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    live_trading_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+class OperationDelivery(Base):
+    """One local or Telegram delivery attempt. The bot token is not a column."""
+
+    __tablename__ = "operation_deliveries"
+    __table_args__ = (
+        CheckConstraint(
+            "channel IN ('local', 'telegram')",
+            name="ck_operation_deliveries_channel",
+        ),
+        CheckConstraint(
+            "status IN ('stored', 'sent', 'failed')",
+            name="ck_operation_deliveries_status",
+        ),
+        CheckConstraint("live_trading_enabled IS false", name="ck_operation_deliveries_live"),
+        UniqueConstraint("dedup_key", "channel", name="uq_operation_deliveries_notice"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    dedup_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    detail: Mapped[str] = mapped_column(String(300), nullable=False)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    live_trading_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 class AuthEventRow(Base):

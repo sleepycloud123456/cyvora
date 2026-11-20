@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWi
 
 from apps.desktop.components.disclosure import DetailDisclosure
 from apps.desktop.components.status_card import StatusCard
+from apps.desktop.services.attention import attention_text
 from config.settings import PHASE, Settings
 from domain.enums import ExecutionMode
 from domain.status import StatusSnapshot
@@ -22,6 +23,10 @@ class HealthPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 8, 0, 0)
         layout.setSpacing(22)
+        self.attention = QLabel("")
+        self.attention.setObjectName("AttentionBanner")
+        self.attention.setWordWrap(True)
+        self.attention.setVisible(False)
         mode = "PAPER" if settings.execution_mode is ExecutionMode.PAPER else "READ-ONLY"
         self.summary = QLabel(
             f"Phase {PHASE}. Mode {mode}. Python {sys.version.split()[0]}. "
@@ -73,6 +78,7 @@ class HealthPage(QWidget):
         self.details.add(secondary_host)
         self.details.add(self.reconnect)
         self.details.add(self.freshness)
+        layout.addWidget(self.attention)
         layout.addLayout(primary)
         layout.addWidget(self.details)
         layout.addStretch(1)
@@ -87,6 +93,7 @@ class HealthPage(QWidget):
     def set_idle(self) -> None:
         for card in self._cards():
             card.set_status("Not checked", "The status probe is idle in this session.")
+        self.attention.setVisible(False)
 
     def show_probe_failure(self, message: str) -> None:
         self.database_card.set_status("unknown", message)
@@ -95,6 +102,10 @@ class HealthPage(QWidget):
         self.workers_card.set_status("unknown", message)
         self.market_data_card.set_status("unknown", message)
         self.kill_switch_card.set_status("unknown", message)
+        self._show_attention(
+            "API status is unknown. The status check failed, so the desktop cannot "
+            "confirm that the API is up. Stored rows may be stale."
+        )
 
     def note_reconnect(self) -> None:
         self.reconnect.setText("Probing the loopback API again. This window does not start it.")
@@ -109,6 +120,7 @@ class HealthPage(QWidget):
         self.queue_card.apply(snapshot.queue)
         self.connection_card.apply(snapshot.websocket)
         self.kill_switch_card.apply(snapshot.kill_switch)
+        self._show_attention(attention_text(snapshot))
         if snapshot.backend.state == "offline":
             self.reconnect.setText(
                 "The API is offline. The desktop will probe loopback again. "
@@ -119,6 +131,14 @@ class HealthPage(QWidget):
                 "The API responded. The desktop will keep probing loopback. "
                 "It does not start the API."
             )
+
+    def _show_attention(self, text: str) -> None:
+        if not text:
+            self.attention.clear()
+            self.attention.setVisible(False)
+            return
+        self.attention.setText(text)
+        self.attention.setVisible(True)
 
     def _cards(self) -> tuple[StatusCard, ...]:
         return (

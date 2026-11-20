@@ -9,7 +9,7 @@ from config.settings import Settings
 
 _ASSIGNMENT = re.compile(
     r"(?i)\b((?:GMGN_API_KEY|CYVORA_GMGN_API_KEY|GMGN_PRIVATE_KEY|"
-    r"CYVORA_API_TOKEN|X-APIKEY|"
+    r"CYVORA_API_TOKEN|CYVORA_TELEGRAM_BOT_TOKEN|TELEGRAM_BOT_TOKEN|X-APIKEY|"
     r"AUTHORIZATION)\s*[=:]\s*(?:bearer\s+)?)(\S+)"
 )
 _DATABASE_URL = re.compile(r"(?i)(postgresql(?:\+psycopg)?://[^:\s']+:)([^@\s']+)(@)")
@@ -36,6 +36,10 @@ def secret_values(settings: Settings) -> tuple[str, ...]:
         token = settings.api_token.get_secret_value()
         if len(token) >= _MIN_SECRET_LENGTH:
             found.append(token)
+    if settings.telegram_bot_token is not None:
+        telegram = settings.telegram_bot_token.get_secret_value()
+        if len(telegram) >= _MIN_SECRET_LENGTH:
+            found.append(telegram)
     if settings.database_url:
         try:
             password = urlsplit(settings.database_url).password

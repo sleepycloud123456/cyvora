@@ -20,7 +20,12 @@ from domain.shield import (
     ShieldSnapshot,
 )
 from domain.status import ComponentStatus, StatusSnapshot
-from domain.terminal import NotificationCategory, NotificationRecord
+from domain.terminal import (
+    UNSOURCED_NOTIFICATIONS,
+    AlertEvidence,
+    NotificationCategory,
+    NotificationRecord,
+)
 from domain.trading import (
     OrderRecord,
     OrderSide,
@@ -166,6 +171,46 @@ def test_quiet_period_withholds_research_and_keeps_critical_notices() -> None:
         ),
     )
     assert all(item.category != "new_token" for item in unseen(stored, drafts))
+
+
+def test_stopped_and_accumulation_notices_come_from_stored_evidence() -> None:
+    assert frozenset() == UNSOURCED_NOTIFICATIONS
+    prefs = normalize_preferences(
+        enabled_categories=("new_token", "smart_money_accumulation"),
+        quiet_start_minute=0,
+        quiet_end_minute=13 * 60,
+        minimum_repeat_seconds=3600,
+    )
+    alerts = (
+        AlertEvidence(
+            NotificationCategory.APPLICATION_STOPPED.value,
+            "launcher",
+            "The launcher stopped the local processes.",
+            NOW,
+        ),
+        AlertEvidence(
+            NotificationCategory.SMART_MONEY_ACCUMULATION.value,
+            MINT,
+            "Stored smart-wallet tag count for AAA rose from 1 to 3. This is not an entry.",
+            NOW,
+        ),
+    )
+    drafts = build_notifications(
+        trading=TradingSnapshot((), (), ()),
+        shield=initial_snapshot(),
+        notices=(),
+        decisions=(),
+        cycle=None,
+        status=None,
+        preferences=prefs,
+        now=NOW,
+        alerts=alerts,
+    )
+    by_category = {item.category: item for item in drafts}
+    assert by_category["application_stopped"].withheld is False
+    assert "stopped" in by_category["application_stopped"].detail
+    assert by_category["smart_money_accumulation"].withheld is True
+    assert "not an entry" in by_category["smart_money_accumulation"].detail
 
 
 def test_analytics_does_not_invent_sharpe_or_deploy_research() -> None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import uvicorn
@@ -35,12 +37,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     assert_runtime_safe(active)
     configure_logging(active)
     log_startup(active)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        from operations.lifecycle import record_lifecycle
+
+        record_lifecycle(active, "api", "started")
+        try:
+            yield
+        finally:
+            record_lifecycle(active, "api", "stopped")
+
     app = FastAPI(
         title=f"{APP_NAME} API",
         version=APP_VERSION,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=lifespan,
     )
     app.state.settings = active
     app.state.radar_lock = asyncio.Lock()
