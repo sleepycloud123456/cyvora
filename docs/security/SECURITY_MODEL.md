@@ -72,6 +72,6 @@ The database URL is omitted from `repr(Settings)` and from `model_dump`. `get_se
 - `/health` without a token returns liveness only. The detailed body, including the kill-switch word, requires the local token. The socket stays on loopback. Radar, trading, terminal, and operations routes require the token as well.
 - Authentication failures in the last 60 seconds are reloaded from `auth_events` when the API starts. A successful call on a protected route still clears the in-memory window. A successful detailed health call does not.
 - The GitHub repository is public. `.env` is not in history. Making the repository private is an operator decision. This follow-up did not change visibility.
-- `fsspec` 2026.2.0 is required by NautilusTrader 1.231.0 (`fsspec==2026.2.0`). `fsspec==2026.6.0` does not resolve beside that pin. CYVORA does not call the affected API. See `docs/security/SECURITY_REVIEW.md`.
+- `fsspec` is overridden to `>=2026.6.0` so PYSEC-2026-4217 is closed while NautilusTrader stays 1.231.0. CYVORA does not open a reference filesystem. See `docs/security/SECURITY_REVIEW.md`.
 - Log files in `logs/` are local and gitignored. They can still contain messages a developer logs later. The logging rule is to keep secrets out of those messages.
 - PostgreSQL, once installed, must be configured by the operator to listen on localhost and to use a password that is not reused from another service. The repository does not do that install.

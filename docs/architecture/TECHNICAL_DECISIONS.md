@@ -30,6 +30,8 @@ Phase 1 recorded the candidate and did not install it. On 2026-11-11 PyPI still 
 
 `uv add nautilus_trader==1.231.0` installed the Windows cp313 wheel into this project's environment. `import nautilus_trader` reports `1.231.0` on Windows 11 Home. The official CI host remains Windows Server 2022. WSL2 is still unavailable because virtualization is disabled, so the desktop and the engine both stay on native Windows.
 
+On 2026-11-18 PyPI still lists 1.231.0 as the newest stable release. `2.0.0` final is still unpublished, so the release candidates stay unused. NautilusTrader 1.231.0 requires `fsspec==2026.2.0`. That release is PYSEC-2026-4217. `[tool.uv] override-dependencies` installs `fsspec>=2026.6.0` beside the same Nautilus wheel. The paper health check and the pytest suite are the compatibility proof.
+
 The Solana mapping is in `docs/trading/NAUTILUS_MAPPING.md`. CYVORA keeps paper orders in its own ledger. Nautilus `BacktestEngine` is used to prove what 1.231.0 can represent. A `CurrencyPair` is a synthetic spot instrument, not a swap. Prices that need more than 9 decimal places are not forced into the engine. No live data client or live execution client is registered.
 
 ## PySide6 for the shell

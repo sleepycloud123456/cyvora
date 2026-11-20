@@ -8,7 +8,7 @@ The window opens on an icon rail. The visible pages, in order, are Dashboard, Op
 
 `apps/desktop/navigation.py` keeps one catalog. Pages removed from the rail stay in that catalog with `shown` false: the six radar pages, Portfolio, CYVORA Intelligence, and Settings. Their widgets and data paths remain. Set `shown` to true to put a page back on the rail in list order.
 
-The header shows the configured mode, `READ-ONLY` or `PAPER`, and the slogan TRADE BEYOND LIMITS. The mode badge tooltip states that live trading is locked. Changing the mode is still an environment change and a restart. Settings remains the page that stores profiles, notification preferences, pause, resume, the kill switch, and the session motion checkbox. It is not on the rail.
+The header shows the configured mode, `READ-ONLY` or `PAPER`, the slogan TRADE BEYOND LIMITS, and compact Pause, Resume, Kill, and Release controls. The mode badge tooltip states that live trading is locked. Changing the mode is still an environment change and a restart. Those four controls use the same confirmations as before. None of them submits an order or enables live trading. Risk Management shows the same controls at full size, the stored Shield book, the entry posture, and the kill-switch state. Settings remains off the rail. It still stores profiles, notification preferences, and the session motion checkbox, and it still has the same four controls.
 
 Long explanations sit behind a Details control. Empty books stay one short line. No page is filled with sample prices.
 
@@ -38,9 +38,13 @@ The only provider is `stored-evidence`. It explains stored analyses, Shield post
 
 Notices are inserted from stored discoveries, confirmed paper orders, Shield decisions, emergencies, breach reasons, and the local status probe. The dedup key stops a repeat inside the configured interval. A quiet window withholds non-critical notices. Emergency, daily loss, drawdown, consecutive losses, database failure, API disconnection, and liquidity removal stay recorded. Smart-money accumulation and application-stopped have no stored source, so they are not emitted. Telegram delivery is constrained off. No bot token is loaded.
 
+## Dashboard refresh
+
+The Dashboard can run one read-only radar cycle and can repeat it on the configured interval. That is the same cycle the hidden Live Scanner page starts. It does not submit an order. Watchlist edits stay on the scanner page.
+
 ## Settings and controls
 
-The configured mode is the header badge. The Settings page is off the rail and still holds the same controls. Changing `READ_ONLY` or `PAPER` is an environment change and a restart. There is no control that can set a live mode. Manual order entry is locked. Strategy start and stop call the existing paper registry and do not submit an order. Pause and resume call Shield. Resume is refused while a breach is latched or an emergency halt trigger is active. A pause does not submit an order. The motion checkbox changes only the desktop animation.
+The configured mode is the header badge. Pause, resume, and the kill switch are on the header and on Risk Management. The Settings page is off the rail and still holds the same controls. Changing `READ_ONLY` or `PAPER` is an environment change and a restart. There is no control that can set a live mode. Manual order entry is locked. Strategy start and stop call the existing paper registry and do not submit an order. Pause and resume call Shield. Resume is refused while a breach is latched or an emergency halt trigger is active. A pause does not submit an order. Releasing the kill switch uses the same confirmation as the stored latch. The motion checkbox changes only the desktop animation.
 
 A trading profile stores a name, strategy ids, and an optional signal threshold from 0 to 1. The threshold is not applied to the radar score or to Shield. Global Shield limits remain the only trade-approval authority.
 
